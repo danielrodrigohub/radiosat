@@ -105,7 +105,7 @@ RadioSAT XP is a complete radio broadcast automation system built with **PyQt6**
 | **Audio Passthrough** | <img src="winxpicons/Audio CD.png" width="24"/> | Live mic-to-output signal routing |
 | **Ad Scheduling** | <img src="winxpicons/VPN Connection.png" width="24"/> | Scheduled ad breaks with auto-return |
 | **Dark/Light Theme** | <img src="winxpicons/System Properties.png" width="24"/> | Switchable dark and light UI themes |
-| **XP Icons** | <img src="winxpicons/Activate Windows.ico" width="24"/> | Original Windows XP icon set throughout the UI |
+| **XP Icons** | <img src="winxpicons/Activation.png" width="24"/> | Original Windows XP icon set throughout the UI |
 
 ---
 
@@ -485,7 +485,7 @@ Shows detected DTMF digits in real-time. Changes color to indicate:
 
 <p align="center">
   <img src="winxpicons/Chip.png" width="64" alt="DTMF Config"/>
-  <img src="winxpicons/Manage your Server.ico" width="64" alt="Server"/>
+  <img src="winxpicons/Manage Your Server.png" width="64" alt="Server"/>
 </p>
 
 Three tabs for configuring DTMF detection:

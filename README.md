@@ -8,7 +8,7 @@
 > **Professional radio automation suite** with a nostalgic Windows XP aesthetic. Real-time audio playback, DTMF tone detection, live streaming, playlist management, and broadcast control — all in one application.
 
 <p align="center">
-  <img src="winxpicons/SoundandAudioDevices.png" width="80" alt="RadioSAT"/>
+  <img src="winxpicons/Remote Desktop.png" width="80" alt="RadioSAT"/>
 </p>
 
 ---

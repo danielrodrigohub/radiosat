@@ -26,3 +26,14 @@ data/*.json
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# PyInstaller
+build/
+dist/
+*.spec.bak
+
+# Installer output
+installer/
+
+# User data (runtime)
+.radiosat/

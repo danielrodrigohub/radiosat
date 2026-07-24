@@ -1,0 +1,152 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: macOS Build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: pyinstaller radiosat.spec --clean --noconfirm
+
+      - name: Create DMG
+        run: |
+          mkdir -p dist/dmg
+          cp -R dist/RadioSAT.app dist/dmg/
+          ln -sf /Applications dist/dmg/Applications
+          hdiutil create -volname "RadioSAT XP" \
+            -srcfolder dist/dmg \
+            -ov -format UDZO \
+            dist/RadioSAT.dmg
+          rm -rf dist/dmg
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadioSAT-macOS
+          path: dist/RadioSAT.dmg
+
+  build-windows:
+    name: Windows Build + Installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: pyinstaller radiosat.spec --clean --noconfirm
+
+      - name: Verify build
+        shell: pwsh
+        run: |
+          if (Test-Path "dist\RadioSAT\RadioSAT.exe") {
+            echo "RadioSAT.exe built successfully"
+            Get-ChildItem dist\RadioSAT | Select-Object Name, Length
+          } else {
+            echo "ERROR: RadioSAT.exe not found!"
+            exit 1
+          }
+
+      - name: Create ZIP portable
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\RadioSAT\* -DestinationPath dist\RadioSAT_Windows.zip
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadioSAT-Windows-zip
+          path: dist/RadioSAT_Windows.zip
+
+      - name: Create installer output dir
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path installer
+
+      - name: Build Inno Setup installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            # Fallback: try installing via choco
+            choco install innosetup -y
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc /Q radiosat.iss
+          if (Test-Path "installer\RadioSAT_Setup.exe") {
+            echo "Installer created successfully"
+            Get-Item "installer\RadioSAT_Setup.exe" | Select-Object Length
+          } else {
+            echo "ERROR: Installer not created!"
+            exit 1
+          }
+
+      - name: Upload Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: RadioSAT-Installer
+          path: installer/RadioSAT_Setup.exe
+
+  release:
+    name: Create Release
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f -name "*.dmg" -o -name "*.zip" -o -name "*.exe"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: RadioSAT XP ${{ github.ref_name }}
+          body: |
+            ## RadioSAT XP ${{ github.ref_name }}
+            
+            ### Descargas
+            | Plataforma | Archivo | Instrucciones |
+            |------------|---------|---------------|
+            | macOS | `RadioSAT.dmg` | Abrir y arrastrar a Aplicaciones |
+            | Windows | `RadioSAT_Setup.exe` | Ejecutar el instalador |
+            | Windows Portable | `RadioSAT_Windows.zip` | Descomprimir y ejecutar RadioSAT.exe |
+            
+            ### Requisitos
+            - macOS 12+ o Windows 10+
+            - FFmpeg (opcional, para streams remotos)
+          files: |
+            artifacts/RadioSAT-macOS/RadioSAT.dmg
+            artifacts/RadioSAT-Windows-zip/RadioSAT_Windows.zip
+            artifacts/RadioSAT-Installer/RadioSAT_Setup.exe
+          draft: false
+          prerelease: false

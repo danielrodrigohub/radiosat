@@ -69,9 +69,37 @@ try:
 except Exception:
     TTS_OK = False
 
+# ── Rutas compatibles con PyInstaller ───────────────────────────────────────
+def resource_path(relative_path: str) -> str:
+    """Devuelve la ruta absoluta a un recurso empaquetado o de desarrollo."""
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+def data_path(filename: str) -> str:
+    """Devuelve la ruta a un archivo de datos persistente (writable)."""
+    if getattr(sys, 'frozen', False):
+        base = os.path.join(os.path.expanduser("~"), ".radiosat")
+    else:
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, filename)
+
+def ffmpeg_path() -> str:
+    """Devuelve la ruta al binario de FFmpeg (bundled o del sistema)."""
+    if getattr(sys, 'frozen', False):
+        bundled = os.path.join(sys._MEIPASS, "ffmpeg")
+        if sys.platform == "win32":
+            bundled += ".exe"
+        if os.path.exists(bundled):
+            return bundled
+    return "ffmpeg"
+
 # ── Íconos XP ──────────────────────────────────────────────────────────────
-WINXP_DIR = os.path.join(os.path.dirname(__file__), "winxpicons")
-ICONS_DIR = os.path.join(os.path.dirname(__file__), "icons")
+WINXP_DIR = resource_path("winxpicons")
+ICONS_DIR = resource_path("icons")
 
 XP_ICON_MAP = {
     "AudioDevices.png": "Sounds, Speech, and Audio Devices.ico",
@@ -717,7 +745,7 @@ class StreamDTMFDetector(QObject):
         self._proc.finished.connect(
             lambda code, status: self.status_update.emit("Detector remoto: detenido")
         )
-        self._proc.start("ffmpeg", [
+        self._proc.start(ffmpeg_path(), [
             "-hide_banner", "-nostdin", "-loglevel", "error",
             "-reconnect", "1", "-reconnect_streamed", "1",
             "-reconnect_at_eof", "1", "-reconnect_on_network_error", "1",
@@ -1454,9 +1482,13 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Radio XP Automator  –  Suite de Automatización")
         self.resize(1200, 810)
         self.setMinimumSize(950, 680)
-        px = xp_pixmap("AudioDevices.png", 32)
-        if not px.isNull():
-            self.setWindowIcon(QIcon(px))
+        app_icon_path = resource_path(os.path.join("assets", "icon.png"))
+        if os.path.exists(app_icon_path):
+            self.setWindowIcon(QIcon(app_icon_path))
+        else:
+            px = xp_pixmap("AudioDevices.png", 32)
+            if not px.isNull():
+                self.setWindowIcon(QIcon(px))
 
         # ── Motores ────────────────────────────────────────────────────────
         self.engine  = AudioEngine(self)
@@ -3276,7 +3308,10 @@ class MainWindow(QMainWindow):
     #  PERSISTENCIA DE DATOS
     # ═══════════════════════════════════════════════════
     def _get_data_dir(self) -> str:
-        data_dir = os.path.join(os.path.dirname(__file__), "data")
+        if getattr(sys, 'frozen', False):
+            data_dir = os.path.join(os.path.expanduser("~"), ".radiosat")
+        else:
+            data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
         os.makedirs(data_dir, exist_ok=True)
         return data_dir
 
@@ -3413,6 +3448,11 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+
+    app_icon_path = resource_path(os.path.join("assets", "icon.png"))
+    if os.path.exists(app_icon_path):
+        app.setWindowIcon(QIcon(app_icon_path))
+
     set_theme(dark=True)
     app.setStyleSheet(generate_qss())
     app.setFont(QFont("Helvetica Neue", 9))

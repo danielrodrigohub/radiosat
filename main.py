@@ -2509,7 +2509,15 @@ class MainWindow(QMainWindow):
         if self.dtmf._external_mode:
             self.dtmf.stop_external()
             if self._dtmf_on:
-                QTimer.singleShot(200, self.dtmf.start)
+                print("[DTMF] Programando reinicio del detector interno en 1000ms...")
+                QTimer.singleShot(1000, self._start_dtmf_safe)
+
+    def _start_dtmf_safe(self):
+        """Reinicia el detector DTMF de forma segura asegurando los parámetros correctos."""
+        if self._dtmf_on and not self.dtmf._running and not self.dtmf._external_mode:
+            print("[DTMF] Reiniciando detector de forma segura...")
+            self._apply_dtmf_params()
+            self.dtmf.start()
 
     def _toggle_pauta(self, checked: bool, from_dtmf: bool = False):
         if self._dtmf_activating:
@@ -2945,15 +2953,6 @@ class MainWindow(QMainWindow):
         self.engine.play(0)
         print("[DTMF→PAUTA] ✓ Pauta Local activada correctamente (desde audio 1)")
         self._dtmf_activating = False
-        
-        # 4. Reiniciar detector DTMF después de un breve delay
-        QTimer.singleShot(500, self._restart_dtmf_after_pauta)
-
-    def _restart_dtmf_after_pauta(self):
-        if self._dtmf_on and self._pauta_on:
-            print("[DTMF] Reiniciando detector después de activar Pauta Local...")
-            self.dtmf.stop()
-            QTimer.singleShot(200, self.dtmf.start)
 
     def _activate_signal_from_dtmf(self):
         if self._remote_on:

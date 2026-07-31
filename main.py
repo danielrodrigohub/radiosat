@@ -430,6 +430,7 @@ class AudioEngine(QObject):
         self.player.playbackStateChanged.connect(self._on_state_changed)
         self.player.mediaStatusChanged.connect(self._on_media_status_changed)
         self.player.metaDataChanged.connect(self._on_metadata_changed)
+        self.player.errorOccurred.connect(self._on_error)
 
         self._poll = QTimer(self)
         self._poll.timeout.connect(self._on_poll)
@@ -541,6 +542,28 @@ class AudioEngine(QObject):
         self._index = (self._index - 1) % len(self._playlist)
         self.play()
 
+    def set_output_device(self, device):
+        """Cambia el dispositivo de salida de audio (QAudioDevice)."""
+        was_playing = self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
+        current_source = self.player.source()
+        current_pos = self.player.position()
+        
+        if was_playing:
+            self.player.stop()
+        
+        self.player.setAudioOutput(None)
+        if device is not None:
+            self.audio_output = QAudioOutput(device, self)
+        else:
+            self.audio_output = QAudioOutput(self)
+        self.audio_output.setVolume(self._volume)
+        self.player.setAudioOutput(self.audio_output)
+        
+        if was_playing:
+            self.player.setSource(current_source)
+            self.player.setPosition(current_pos)
+            self.player.play()
+
     def set_volume(self, vol: float):
         """vol: 0.0 a 1.0"""
         self._volume = max(0.0, min(1.0, vol))
@@ -596,6 +619,12 @@ class AudioEngine(QObject):
             if title or artist:
                 text = f"{artist} - {title}" if artist else title
                 self.metadata_update.emit(text)
+
+    def _on_error(self, error, error_string=""):
+        msg = error_string or str(error)
+        if msg:
+            print(f"[AudioEngine] Error: {msg}")
+            self.error_signal.emit(f"Error de audio: {msg}")
 
     def _on_poll(self):
         pass
@@ -1887,6 +1916,7 @@ class MainWindow(QMainWindow):
 
         g1.addWidget(QLabel("Salida (Reproductor):"), 1, 0)
         self._out_dev_combo = QComboBox()
+        self._out_dev_combo.setToolTip("Dispositivo de salida para el reproductor local")
         self._out_dev_combo.currentIndexChanged.connect(self._on_out_dev_changed)
         g1.addWidget(self._out_dev_combo, 1, 1)
 
@@ -1895,6 +1925,10 @@ class MainWindow(QMainWindow):
         self._remote_out_dev_combo.setToolTip("Dispositivo de salida exclusivo para la señal remota")
         self._remote_out_dev_combo.currentIndexChanged.connect(self._on_remote_out_dev_changed)
         g1.addWidget(self._remote_out_dev_combo, 2, 1)
+
+        # Combo interno para sounddevice (passthrough/tonos DTMF) — no visible, se sincroniza con _out_dev_combo
+        self._sd_out_dev_combo = QComboBox()
+        self._sd_out_dev_combo.setVisible(False)
 
         btn_ref = QPushButton("  Actualizar")
         btn_ref.setIcon(xp_icon("Refresh.png"))
@@ -2432,7 +2466,7 @@ class MainWindow(QMainWindow):
 
     def _start_main_signal(self):
         in_dev = self._dtmf_dev_combo.currentData()
-        out_dev = self._out_dev_combo.currentData()
+        out_dev = self._sd_out_dev_combo.currentData()
         print(f"[SIGNAL] _start_main_signal: in_dev={in_dev}, out_dev={out_dev}")
         if in_dev is None or out_dev is None:
             print("[SIGNAL] ERROR: Dispositivos no configurados")
@@ -2744,6 +2778,9 @@ class MainWindow(QMainWindow):
         self._dtmf_dev_combo.clear()
         self._out_dev_combo.clear()
         self._remote_out_dev_combo.clear()
+        self._sd_out_dev_combo.clear()
+
+        # --- Dispositivos sounddevice (para DTMF entrada + passthrough salida) ---
         if SOUND_OK:
             try:
                 devs = sd.query_devices()
@@ -2754,15 +2791,25 @@ class MainWindow(QMainWindow):
                         tag = " [Stereo]" if ch >= 2 else " [Mono]"
                         self._dtmf_dev_combo.addItem(f"{name}{tag}", i)
                     if d["max_output_channels"] > 0 and _is_real_audio_device(d):
-                        self._out_dev_combo.addItem(f"{name}", i)
+                        self._sd_out_dev_combo.addItem(f"{name}", i)
             except Exception:
                 pass
         if self._dtmf_dev_combo.count() == 0:
             self._dtmf_dev_combo.addItem("(sin dispositivos)", None)
-        if self._out_dev_combo.count() == 0:
-            self._out_dev_combo.addItem("(sin dispositivos)", None)
+        if self._sd_out_dev_combo.count() == 0:
+            self._sd_out_dev_combo.addItem("(sin dispositivos)", None)
+
+        # --- Dispositivos QtMultimedia (para reproductor local + remoto) ---
         try:
             default_output = QMediaDevices.defaultAudioOutput()
+            # Reproductor local
+            self._out_dev_combo.addItem("Sistema predeterminado", None)
+            for device in QMediaDevices.audioOutputs():
+                label = device.description()
+                self._out_dev_combo.addItem(label, device)
+                if not default_output.isNull() and device.id() == default_output.id():
+                    self._out_dev_combo.setCurrentIndex(self._out_dev_combo.count() - 1)
+            # Reproductor remoto
             self._remote_out_dev_combo.addItem("Sistema predeterminado", None)
             for device in QMediaDevices.audioOutputs():
                 label = device.description()
@@ -2770,10 +2817,16 @@ class MainWindow(QMainWindow):
                 if not default_output.isNull() and device.id() == default_output.id():
                     self._remote_out_dev_combo.setCurrentIndex(self._remote_out_dev_combo.count() - 1)
         except Exception:
+            self._out_dev_combo.addItem("Sistema predeterminado", None)
             self._remote_out_dev_combo.addItem("Sistema predeterminado", None)
 
     def _on_out_dev_changed(self, idx):
-        pass
+        """Aplica el dispositivo de salida seleccionado al reproductor local."""
+        if not hasattr(self, "engine"):
+            return
+        device = self._out_dev_combo.currentData()
+        self.engine.set_output_device(device)
+        print(f"[DEVICES] Reproductor local → {self._out_dev_combo.currentText()}")
 
     def _on_remote_out_dev_changed(self, idx):
         if not hasattr(self, "remote_engine"):
@@ -2805,7 +2858,7 @@ class MainWindow(QMainWindow):
                     0.5 * np.sin(2 * np.pi * freqs[1] * np.array(t)))
             samples[:, 0] = tone
             samples[:, 1] = tone
-            out_dev = self._out_dev_combo.currentData()
+            out_dev = self._sd_out_dev_combo.currentData()
             sd.play(samples, sr, device=out_dev)
             if self._remote_dtmf_active:
                 self.remote_dtmf.feed_digit(digit)
@@ -2927,7 +2980,7 @@ class MainWindow(QMainWindow):
         
         # 3. Iniciar passthrough directamente
         in_dev = self._dtmf_dev_combo.currentData()
-        out_dev = self._out_dev_combo.currentData()
+        out_dev = self._sd_out_dev_combo.currentData()
         print(f"[DTMF→SIGNAL] Dispositivos: in={in_dev}, out={out_dev}")
         if in_dev is not None and out_dev is not None:
             self.passthrough.set_devices(in_dev, out_dev)

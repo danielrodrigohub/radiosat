@@ -1914,27 +1914,28 @@ class MainWindow(QMainWindow):
         self._dtmf_dev_combo.setToolTip("Dispositivo de entrada para detección DTMF")
         g1.addWidget(self._dtmf_dev_combo, 0, 1)
 
-        g1.addWidget(QLabel("Salida (Reproductor):"), 1, 0)
+        g1.addWidget(QLabel("Salida (Señal Principal):"), 1, 0)
+        self._sd_out_dev_combo = QComboBox()
+        self._sd_out_dev_combo.setToolTip("Dispositivo de salida para la señal principal (passthrough de audio en vivo)")
+        g1.addWidget(self._sd_out_dev_combo, 1, 1)
+
+        g1.addWidget(QLabel("Salida (Reproductor):"), 2, 0)
         self._out_dev_combo = QComboBox()
         self._out_dev_combo.setToolTip("Dispositivo de salida para el reproductor local")
         self._out_dev_combo.currentIndexChanged.connect(self._on_out_dev_changed)
-        g1.addWidget(self._out_dev_combo, 1, 1)
+        g1.addWidget(self._out_dev_combo, 2, 1)
 
-        g1.addWidget(QLabel("Salida (Reproductor Remoto):"), 2, 0)
+        g1.addWidget(QLabel("Salida (Reproductor Remoto):"), 3, 0)
         self._remote_out_dev_combo = QComboBox()
         self._remote_out_dev_combo.setToolTip("Dispositivo de salida exclusivo para la señal remota")
         self._remote_out_dev_combo.currentIndexChanged.connect(self._on_remote_out_dev_changed)
-        g1.addWidget(self._remote_out_dev_combo, 2, 1)
-
-        # Combo interno para sounddevice (passthrough/tonos DTMF) — no visible, se sincroniza con _out_dev_combo
-        self._sd_out_dev_combo = QComboBox()
-        self._sd_out_dev_combo.setVisible(False)
+        g1.addWidget(self._remote_out_dev_combo, 3, 1)
 
         btn_ref = QPushButton("  Actualizar")
         btn_ref.setIcon(xp_icon("Refresh.png"))
         btn_ref.setToolTip("Actualizar lista de dispositivos de audio")
         btn_ref.clicked.connect(self._refresh_devices)
-        g1.addWidget(btn_ref, 3, 0, 1, 2)
+        g1.addWidget(btn_ref, 4, 0, 1, 2)
         tabs.addTab(t1, "  Dispositivos")
         self._refresh_devices()
 

@@ -1706,6 +1706,7 @@ class MainWindow(QMainWindow):
 
         # ── Variables de estado ────────────────────────────────────────────
         self._dtmf_log: list[str]  = []
+        self._dtmf_seq_progress: dict[str, int] = {}
         self._dtmf_cooldown_until: float = 0.0
         self._last_digit_time: float = 0.0
         self._seeking  = False
@@ -2621,6 +2622,13 @@ class MainWindow(QMainWindow):
         self.btn_signal.blockSignals(old)
         self.btn_signal.setStyleSheet("")
 
+        if self._dtmf_on and not self.passthrough.is_running:
+            in_dev = self._dtmf_dev_combo.currentData()
+            out_dev = self._sd_out_dev_combo.currentData()
+            if in_dev is not None and out_dev is not None:
+                self.passthrough.set_devices(in_dev, out_dev)
+                self.passthrough.start()
+
         if self._dtmf_on and self.passthrough.is_running:
             self._main_signal_monitoring_for_pauta = True
             self.passthrough.set_muted(True)
@@ -2644,6 +2652,49 @@ class MainWindow(QMainWindow):
             self._attach_dtmf_to_passthrough()
         self._wave.set_metadata("♪ SEÑAL PRINCIPAL: Audio en vivo  •  RadioSAT XP")
         return True
+
+    def _return_to_main_signal_from_dtmf(self):
+        print("[DTMF→SIGNAL] Retornando desde Pauta Local a Señal Principal...")
+        self._dtmf_activating = True
+        self._remote_resume_pending = False
+
+        if self._pauta_on or self.engine.state != "stopped":
+            self._pauta_on = False
+            self.engine.stop()
+            self._set_pauta_checked(False)
+            self.btn_pauta.setStyleSheet("")
+
+        restored = self._restore_main_signal_from_monitor()
+        if not restored:
+            in_dev = self._dtmf_dev_combo.currentData()
+            out_dev = self._sd_out_dev_combo.currentData()
+            if in_dev is not None and out_dev is not None:
+                self.passthrough.set_devices(in_dev, out_dev)
+                self.passthrough.set_muted(False)
+                if self._dtmf_on:
+                    self._attach_dtmf_to_passthrough()
+                self.passthrough.start()
+                restored = True
+
+        if restored:
+            self._signal_on = True
+            self._led_signal.set_on(True)
+            self._sb_led.set_on(True)
+            old = self.btn_signal.blockSignals(True)
+            self.btn_signal.setChecked(True)
+            self.btn_signal.blockSignals(old)
+            t = _current_theme
+            self.btn_signal.setStyleSheet(f"""
+                QPushButton {{ background:{t['danger']};
+                    color:white; font-weight:bold; border-radius:6px; border:2px solid {t['danger']}; }}
+            """)
+            self._sb_state_lbl.setText("  ● En Aire  ")
+            self._sb_state_lbl.setStyleSheet(f"color:{T('danger')}; font-weight:bold;")
+            self._apply_dtmf_display_style("danger", ">>> SEÑAL PRINCIPAL <<<")
+            self._wave.set_metadata("♪ SEÑAL PRINCIPAL: Audio en vivo  •  RadioSAT XP")
+        else:
+            self._apply_dtmf_display_style("danger", ">>> ERROR: CONFIGURA DISPOSITIVOS <<<")
+        self._dtmf_activating = False
 
     def _start_dtmf_safe(self):
         """Reinicia el detector DTMF de forma segura asegurando los parámetros correctos."""
@@ -3060,12 +3111,40 @@ class MainWindow(QMainWindow):
         elif self._dtmf_on:
             self.dtmf.feed_digit(digit)
 
+    def _matched_dtmf_sequence(self, digit: str, targets: list[str]) -> str:
+        matched = ""
+        active_targets = [target for target in targets if target]
+        for target in active_targets:
+            pos = self._dtmf_seq_progress.get(target, 0)
+            expected = target[pos] if pos < len(target) else target[0]
+
+            if digit == expected:
+                pos += 1
+            elif digit == target[0]:
+                pos = 1
+            elif digit not in target:
+                self._dtmf_seq_progress[target] = pos
+                continue
+            else:
+                pos = 0
+
+            if pos >= len(target):
+                matched = target
+                pos = 0
+            self._dtmf_seq_progress[target] = pos
+
+        stale_targets = set(self._dtmf_seq_progress) - set(active_targets)
+        for target in stale_targets:
+            self._dtmf_seq_progress.pop(target, None)
+        return matched
+
     def _on_dtmf_digit(self, digit: str):
         now = time.time()
         
         # Si pasaron más de 5 segundos sin dígitos, limpiar buffer
         if now - self._last_digit_time > 5.0 and self._dtmf_log:
             self._dtmf_log.clear()
+            self._dtmf_seq_progress.clear()
         
         self._last_digit_time = now
         self._dtmf_log.append(digit)
@@ -3073,14 +3152,16 @@ class MainWindow(QMainWindow):
         
         play_seq = self._dtmf_seq_play.text().strip()
         stop_seq = self._dtmf_seq_stop.text().strip()
+        matched_seq = self._matched_dtmf_sequence(digit, [play_seq, stop_seq])
         
         # Modo normal: mostrar dígitos en display
         self._dtmf_display.setText(seq)
         self._sb_dtmf_lbl.setText(f"  DTMF: [{digit}] {seq}")
         
-        if play_seq and seq.endswith(play_seq):
+        if play_seq and matched_seq == play_seq:
             print(f"[DTMF] === SECUENCIA PLAY DETECTADA: {play_seq} ===")
             self._dtmf_log.clear()
+            self._dtmf_seq_progress.clear()
             self._dtmf_cooldown_until = now + 3.0
             if self._remote_on:
                 self._apply_dtmf_display_style("success", ">>> PAUTA LOCAL ACTIVADA <<<")
@@ -3089,13 +3170,16 @@ class MainWindow(QMainWindow):
                 self._apply_dtmf_display_style("success", ">>> PAUTA LOCAL ON <<<")
                 self._activate_pauta_from_dtmf()
                 
-        elif stop_seq and seq.endswith(stop_seq):
+        elif stop_seq and matched_seq == stop_seq:
             print(f"[DTMF] === SECUENCIA STOP DETECTADA: {stop_seq} ===")
             self._dtmf_log.clear()
+            self._dtmf_seq_progress.clear()
             self._dtmf_cooldown_until = now + 3.0
             if self._remote_on:
                 self._apply_dtmf_display_style("success", ">>> SEÑAL REMOTA <<<")
                 self._return_to_remote_from_dtmf()
+            elif self._main_signal_monitoring_for_pauta or self._pauta_on:
+                self._return_to_main_signal_from_dtmf()
             else:
                 self._apply_dtmf_display_style("danger", ">>> SEÑAL PRINCIPAL <<<")
                 self._activate_signal_from_dtmf()

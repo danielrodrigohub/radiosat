@@ -2533,8 +2533,8 @@ class MainWindow(QMainWindow):
                 self.passthrough.stop()
             if self._remote_on and self.remote_engine.is_playing:
                 self.remote_engine.set_muted(True)
-            print("[PAUTA] Iniciando reproducción...")
-            self.engine.play()
+            print("[PAUTA] Iniciando reproducción desde el inicio...")
+            self.engine.play(0)
             t = _current_theme
             self.btn_pauta.setStyleSheet(f"""
                 QPushButton {{ background:{t['success']};
@@ -2936,8 +2936,8 @@ class MainWindow(QMainWindow):
             QPushButton {{ background:{t['success']};
                 color:white; font-weight:bold; border-radius:6px; border:2px solid {t['success']}; }}
         """)
-        self.engine.play()
-        print("[DTMF→PAUTA] ✓ Pauta Local activada correctamente")
+        self.engine.play(0)
+        print("[DTMF→PAUTA] ✓ Pauta Local activada correctamente (desde audio 1)")
         self._dtmf_activating = False
         
         # 4. Reiniciar detector DTMF después de un breve delay
@@ -2963,7 +2963,7 @@ class MainWindow(QMainWindow):
             print("[DTMF→SIGNAL] Deteniendo Pauta Local...")
             self._pauta_on = False
             self.engine.stop()
-            self.btn_pauta.setChecked(False)
+            self._set_pauta_checked(False)
             self.btn_pauta.setStyleSheet("")
         
         # 2. Actualizar estado

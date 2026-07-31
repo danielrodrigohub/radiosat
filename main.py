@@ -760,6 +760,7 @@ class StreamDTMFDetector(QObject):
         self._silence_count = 0
         self._last_digit_time = 0.0
         self._cooldown_until = 0.0
+        self._feed_buf = np.array([], dtype=np.float32)
 
     def start(self, url: str, stop_seq: str):
         self.stop()
@@ -812,11 +813,17 @@ class StreamDTMFDetector(QObject):
             arr = arr.mean(axis=1)
         if arr.size == 0:
             return
-        for i in range(0, arr.size, self._block):
-            block = arr[i:i + self._block]
-            if block.size < self._block:
-                block = np.pad(block, (0, self._block - block.size))
-            self._process_block(block)
+            
+        if not hasattr(self, '_feed_buf'):
+            self._feed_buf = np.array([], dtype=np.float32)
+            
+        self._feed_buf = np.concatenate((self._feed_buf, arr))
+        
+        while len(self._feed_buf) >= self._block:
+            chunk = self._feed_buf[:self._block]
+            self._feed_buf = self._feed_buf[self._block:]
+            self._process_block(chunk)
+            
         if final_silence:
             self._process_block(np.zeros(self._block, dtype=np.float32))
 
@@ -1079,6 +1086,7 @@ class DTMFDetector(QObject):
         self._last_emitted = ""
         self._silence_count = 0
         self._heartbeat_counter = 0
+        self._ext_buf = np.array([], dtype=np.float32)
         print("[DTMF] Iniciado en modo externo (alimentado por passthrough)")
 
     def stop_external(self):
@@ -1091,27 +1099,37 @@ class DTMFDetector(QObject):
         """Recibe muestras del passthrough en lugar de su propio stream."""
         if not self._running:
             return
+            
+        if not hasattr(self, '_ext_buf'):
+            self._ext_buf = np.array([], dtype=np.float32)
+            
         mono = indata[:, 0] if indata.ndim > 1 else indata
-        rms = float(np.sqrt(np.mean(mono ** 2)))
-        self.level_update.emit(rms * 5, rms * 4.8)
+        self._ext_buf = np.concatenate((self._ext_buf, mono))
+        
+        while len(self._ext_buf) >= self._block:
+            chunk = self._ext_buf[:self._block]
+            self._ext_buf = self._ext_buf[self._block:]
+            
+            rms = float(np.sqrt(np.mean(chunk ** 2)))
+            self.level_update.emit(rms * 5, rms * 4.8)
 
-        self._heartbeat_counter += 1
-        if self._heartbeat_counter % 100 == 0:
-            self.status_update.emit(f"rms={rms:.4f}")
+            self._heartbeat_counter += 1
+            if self._heartbeat_counter % 100 == 0:
+                self.status_update.emit(f"rms={rms:.4f}")
 
-        digit = self._decode(mono) if rms > self._thresh else ""
-        if digit:
-            if digit != self._last_emitted:
-                self._last_emitted = digit
-                self._silence_count = 0
-                self.status_update.emit(f"DTMF: {digit}")
-                self.digit_detected.emit(digit)
+            digit = self._decode(chunk) if rms > self._thresh else ""
+            if digit:
+                if digit != self._last_emitted:
+                    self._last_emitted = digit
+                    self._silence_count = 0
+                    self.status_update.emit(f"DTMF: {digit}")
+                    self.digit_detected.emit(digit)
+                else:
+                    self._silence_count = 0
             else:
-                self._silence_count = 0
-        else:
-            self._silence_count += 1
-            if self._silence_count >= 1:
-                self._last_emitted = ""
+                self._silence_count += 1
+                if self._silence_count >= 1:
+                    self._last_emitted = ""
 
 
 class AudioPassthrough(QObject):

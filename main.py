@@ -730,7 +730,7 @@ class StreamDTMFDetector(QObject):
         self._proc   = None
         self._timer  = None
         self._sr     = 44100
-        self._block  = 1024
+        self._block  = 2048
         self._tol    = 30
         self._thresh = 0.02
         self._buf    = b""
@@ -1123,7 +1123,7 @@ class AudioPassthrough(QObject):
         self._running = False
         self._thread = None
         self._sr = 44100
-        self._block = 1024
+        self._block = 2048
         self._in_device = None
         self._out_device = None
         self._volume = 1.0

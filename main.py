@@ -743,6 +743,8 @@ class StreamDTMFDetector(QObject):
         self._last_digit_time = 0.0
         self._cooldown_until = 0.0
         self._sequence_cooldown = 0.8
+        self._last_action_seq = ""
+        self._last_action_time = 0.0
 
     def set_params(self, freq_tol: int = 20, rms_threshold: float = 0.01):
         self._tol = freq_tol
@@ -762,6 +764,8 @@ class StreamDTMFDetector(QObject):
         self._last_digit_time = 0.0
         self._cooldown_until = 0.0
         self._feed_buf = np.array([], dtype=np.float32)
+        self._last_action_seq = ""
+        self._last_action_time = 0.0
 
     def start(self, url: str, stop_seq: str):
         self.stop()
@@ -832,8 +836,6 @@ class StreamDTMFDetector(QObject):
         digit = str(digit).strip()
         if not digit:
             return
-        if not bypass_cooldown and time.time() < self._cooldown_until:
-            return
         self._last_emitted = ""
         self._silence_count = 0
         self._last_digit_time = time.time()
@@ -855,9 +857,6 @@ class StreamDTMFDetector(QObject):
     def _process_block(self, samples):
         rms = float(np.sqrt(np.mean(samples ** 2)))
         self.level_update.emit(rms * 5, rms * 4.8)
-
-        if time.time() < self._cooldown_until:
-            return
 
         if rms <= self._thresh:
             self._silence_count += 1
@@ -903,9 +902,16 @@ class StreamDTMFDetector(QObject):
             if pos >= len(target):
                 self._seq_progress[target] = 0
                 self._log.clear()
-                self._cooldown_until = time.time() + self._sequence_cooldown
-                self.status_update.emit("Secuencia remota detectada")
-                self.action_detected.emit(target)
+                now = time.time()
+                repeated = (
+                    target == self._last_action_seq and
+                    now - self._last_action_time < self._sequence_cooldown
+                )
+                self._last_action_seq = target
+                self._last_action_time = now
+                if not repeated:
+                    self.status_update.emit("Secuencia remota detectada")
+                    self.action_detected.emit(target)
                 break
             self._seq_progress[target] = pos
 
@@ -992,6 +998,7 @@ class DTMFDetector(QObject):
         self._last_emitted = ""
         self._silence_count = 0
         self._external_mode = False
+        self._tone_refs = {}
 
     def set_params(self, freq_tol: int = 20, rms_threshold: float = 0.01,
                    device=None):
@@ -1064,23 +1071,56 @@ class DTMFDetector(QObject):
             traceback.print_exc()
 
     def _decode(self, samples: "np.ndarray") -> str:
-        fft   = np.abs(np.fft.rfft(samples * np.hanning(len(samples))))
-        freqs = np.fft.rfftfreq(len(samples), 1 / self._sr)
+        samples = np.asarray(samples, dtype=np.float32)
+        if samples.size == 0:
+            return ""
+        centered = samples - float(np.mean(samples))
+        energy = float(np.sum(centered * centered)) + 1e-12
 
-        def peak_near(target):
-            mask = (freqs >= target - self._tol) & (freqs <= target + self._tol)
-            if not np.any(mask):
-                return 0.0
-            return float(np.max(fft[mask]))
+        row_vals = [(self._dtmf_power(centered, f), f) for f in ROW_FREQS]
+        col_vals = [(self._dtmf_power(centered, f), f) for f in COL_FREQS]
+        row_vals.sort(reverse=True)
+        col_vals.sort(reverse=True)
+        best_row = row_vals[0]
+        best_col = col_vals[0]
+        second_row = row_vals[1][0] if len(row_vals) > 1 else 0.0
+        second_col = col_vals[1][0] if len(col_vals) > 1 else 0.0
 
-        row_vals = [(peak_near(f), f) for f in ROW_FREQS]
-        col_vals = [(peak_near(f), f) for f in COL_FREQS]
-        best_row = max(row_vals, key=lambda x: x[0])
-        best_col = max(col_vals, key=lambda x: x[0])
-
-        if best_row[0] < 15 or best_col[0] < 15:
+        min_power = energy * 1.5
+        if best_row[0] < min_power or best_col[0] < min_power:
+            return ""
+        if second_row > 0 and best_row[0] < second_row * 1.08:
+            return ""
+        if second_col > 0 and best_col[0] < second_col * 1.08:
+            return ""
+        twist = best_row[0] / max(best_col[0], 1e-9)
+        if twist < 0.05 or twist > 20.0:
             return ""
         return DTMF_FREQS.get((best_row[1], best_col[1]), "")
+
+    def _dtmf_power(self, samples, freq: int) -> float:
+        power = 0.0
+        for candidate in (freq - self._tol, freq, freq + self._tol):
+            if candidate <= 0:
+                continue
+            ref = self._tone_reference(len(samples), candidate)
+            real = float(np.dot(samples, ref[0]))
+            imag = float(np.dot(samples, ref[1]))
+            power = max(power, real * real + imag * imag)
+        return power
+
+    def _tone_reference(self, n: int, freq: int):
+        key = (n, freq)
+        ref = self._tone_refs.get(key)
+        if ref is None:
+            t = np.arange(n, dtype=np.float32) / self._sr
+            window = np.hanning(n).astype(np.float32)
+            ref = (
+                np.cos(2 * np.pi * freq * t).astype(np.float32) * window,
+                np.sin(2 * np.pi * freq * t).astype(np.float32) * window,
+            )
+            self._tone_refs[key] = ref
+        return ref
 
     def start_external(self):
         """Inicia en modo externo (recibe muestras del passthrough, sin abrir stream propio)."""
@@ -1106,7 +1146,7 @@ class DTMFDetector(QObject):
         if not hasattr(self, '_ext_buf'):
             self._ext_buf = np.array([], dtype=np.float32)
             
-        mono = indata[:, 0] if indata.ndim > 1 else indata
+        mono = np.mean(indata, axis=1) if indata.ndim > 1 else indata
         self._ext_buf = np.concatenate((self._ext_buf, mono))
         
         while len(self._ext_buf) >= self._block:

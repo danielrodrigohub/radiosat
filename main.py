@@ -2449,6 +2449,12 @@ class MainWindow(QMainWindow):
         self._led_signal.set_on(checked)
         self._sb_led.set_on(checked)
         if checked:
+            if self._pauta_on:
+                print("[SIGNAL] Deteniendo Pauta Local...")
+                self._pauta_on = False
+                self.engine.stop()
+                self._set_pauta_checked(False)
+                self.btn_pauta.setStyleSheet("")
             print("[SIGNAL] Activando señal principal...")
             t = _current_theme
             self.btn_signal.setStyleSheet(f"""

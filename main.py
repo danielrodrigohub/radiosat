@@ -742,6 +742,7 @@ class StreamDTMFDetector(QObject):
         self._silence_count = 0
         self._last_digit_time = 0.0
         self._cooldown_until = 0.0
+        self._sequence_cooldown = 0.8
 
     def set_params(self, freq_tol: int = 20, rms_threshold: float = 0.01):
         self._tol = freq_tol
@@ -827,15 +828,17 @@ class StreamDTMFDetector(QObject):
         if final_silence:
             self._process_block(np.zeros(self._block, dtype=np.float32))
 
-    def feed_digit(self, digit: str):
+    def feed_digit(self, digit: str, bypass_cooldown: bool = False):
         digit = str(digit).strip()
         if not digit:
             return
-        if time.time() < self._cooldown_until:
+        if not bypass_cooldown and time.time() < self._cooldown_until:
             return
         self._last_emitted = ""
         self._silence_count = 0
         self._last_digit_time = time.time()
+        self.status_update.emit(f"DTMF remoto: {digit}")
+        self.digit_detected.emit(digit)
         self._append_digit(digit)
 
     def _on_data(self):
@@ -900,7 +903,7 @@ class StreamDTMFDetector(QObject):
             if pos >= len(target):
                 self._seq_progress[target] = 0
                 self._log.clear()
-                self._cooldown_until = time.time() + 3.0
+                self._cooldown_until = time.time() + self._sequence_cooldown
                 self.status_update.emit("Secuencia remota detectada")
                 self.action_detected.emit(target)
                 break
@@ -995,7 +998,7 @@ class DTMFDetector(QObject):
         self._tol    = freq_tol
         self._thresh = rms_threshold
         self._device = device
-        if self._running:
+        if self._running and not self._external_mode:
             self.stop()
             self.start()
 
@@ -1131,6 +1134,18 @@ class DTMFDetector(QObject):
                 if self._silence_count >= 1:
                     self._last_emitted = ""
 
+    def feed_digit(self, digit: str):
+        """Inyecta un dígito DTMF generado internamente por la app."""
+        if not self._running:
+            return
+        digit = str(digit).strip()
+        if not digit:
+            return
+        self._last_emitted = ""
+        self._silence_count = 0
+        self.status_update.emit(f"DTMF: {digit}")
+        self.digit_detected.emit(digit)
+
 
 class AudioPassthrough(QObject):
     """Pasa audio de entrada a salida en tiempo real (Señal Principal)."""
@@ -1145,14 +1160,20 @@ class AudioPassthrough(QObject):
         self._in_device = None
         self._out_device = None
         self._volume = 1.0
+        self._muted = False
         self._audio_queue = queue.Queue(maxsize=100)
         self._external_input_callbacks = []
 
     def register_input_callback(self, cb):
-        self._external_input_callbacks.append(cb)
+        if not any(existing == cb for existing in self._external_input_callbacks):
+            self._external_input_callbacks.append(cb)
 
     def unregister_input_callback(self, cb):
-        self._external_input_callbacks = [c for c in self._external_input_callbacks if c is not cb]
+        self._external_input_callbacks = [c for c in self._external_input_callbacks if c != cb]
+
+    @property
+    def is_running(self):
+        return self._running
 
     def set_devices(self, in_device, out_device):
         self._in_device = in_device
@@ -1163,6 +1184,9 @@ class AudioPassthrough(QObject):
 
     def set_volume(self, vol: float):
         self._volume = max(0.0, min(1.0, vol))
+
+    def set_muted(self, muted: bool):
+        self._muted = bool(muted)
 
     def start(self):
         if not SOUND_OK:
@@ -1210,7 +1234,7 @@ class AudioPassthrough(QObject):
                 except queue.Full:
                     pass
                 # Alimentar callbacks externos (DTMF)
-                for cb in self._external_input_callbacks:
+                for cb in list(self._external_input_callbacks):
                     try:
                         cb(indata.copy())
                     except Exception:
@@ -1231,11 +1255,12 @@ class AudioPassthrough(QObject):
                     print(f"[Passthrough] Output status: {status}")
                 try:
                     data = self._audio_queue.get_nowait()
+                    output_volume = 0.0 if self._muted else self._volume
                     if data.shape[1] == out_channels:
-                        outdata[:] = data * self._volume
+                        outdata[:] = data * output_volume
                     else:
                         for ch in range(out_channels):
-                            outdata[:, ch] = data[:, 0] * self._volume
+                            outdata[:, ch] = data[:, 0] * output_volume
                 except queue.Empty:
                     outdata.fill(0)
             
@@ -1637,6 +1662,7 @@ class MainWindow(QMainWindow):
         self._remote_break_active = False
         self._remote_break_start_seq = ""
         self._remote_break_return_seq = ""
+        self._main_signal_monitoring_for_pauta = False
 
         # ── Variables de estado ────────────────────────────────────────────
         self._dtmf_log: list[str]  = []
@@ -2503,16 +2529,18 @@ class MainWindow(QMainWindow):
         self._was_playing_before_signal = self.engine.state == "playing"
         print(f"[SIGNAL] Iniciando passthrough: in={in_dev}, out={out_dev}")
         self.passthrough.set_devices(in_dev, out_dev)
+        self.passthrough.set_muted(False)
+        self._main_signal_monitoring_for_pauta = False
         # Si DTMF está activo, alimentarlo desde el passthrough
         if self._dtmf_on:
-            self.dtmf.stop()
-            self.dtmf.start_external()
-            self.passthrough.register_input_callback(self.dtmf.feed_samples)
+            self._attach_dtmf_to_passthrough()
         self.passthrough.start()
         self._wave.set_metadata("♪ SEÑAL PRINCIPAL: Audio en vivo  •  RadioSAT XP")
         print("[SIGNAL] ✓ Passthrough iniciado")
 
     def _stop_main_signal(self):
+        self._main_signal_monitoring_for_pauta = False
+        self.passthrough.set_muted(False)
         self._detach_dtmf_from_passthrough()
         self.passthrough.stop()
         self._wave.set_idle()
@@ -2520,6 +2548,15 @@ class MainWindow(QMainWindow):
         if self._was_playing_before_signal:
             self.engine.play()
             self._was_playing_before_signal = False
+
+    def _attach_dtmf_to_passthrough(self):
+        """Usa el audio de Señal Principal como fuente DTMF sin abrir otro input."""
+        self._apply_dtmf_params()
+        self.passthrough.unregister_input_callback(self.dtmf.feed_samples)
+        self.dtmf.stop()
+        self.dtmf.start_external()
+        self.passthrough.register_input_callback(self.dtmf.feed_samples)
+        self._sb_dtmf_lbl.setText("  DTMF: Señal Principal  ")
 
     def _detach_dtmf_from_passthrough(self):
         """Desconecta el DTMF del passthrough y restaura modo normal si aplica."""
@@ -2529,6 +2566,44 @@ class MainWindow(QMainWindow):
             if self._dtmf_on:
                 print("[DTMF] Programando reinicio del detector interno en 1000ms...")
                 QTimer.singleShot(1000, self._start_dtmf_safe)
+
+    def _hold_main_signal_for_pauta(self):
+        """Silencia Señal Principal, pero mantiene su entrada viva para DTMF."""
+        if not self._signal_on:
+            return False
+
+        print("[SIGNAL] Señal Principal queda monitoreando en silencio para DTMF...")
+        self._signal_on = False
+        self._led_signal.set_on(False)
+        self._sb_led.set_on(False)
+        old = self.btn_signal.blockSignals(True)
+        self.btn_signal.setChecked(False)
+        self.btn_signal.blockSignals(old)
+        self.btn_signal.setStyleSheet("")
+
+        if self._dtmf_on and self.passthrough.is_running:
+            self._main_signal_monitoring_for_pauta = True
+            self.passthrough.set_muted(True)
+            self._attach_dtmf_to_passthrough()
+            self._sb_state_lbl.setText("  ● Pauta Local  ")
+            self._sb_state_lbl.setStyleSheet(f"color:{T('success')}; font-weight:bold;")
+            return True
+
+        self._main_signal_monitoring_for_pauta = False
+        self._detach_dtmf_from_passthrough()
+        self.passthrough.stop()
+        return False
+
+    def _restore_main_signal_from_monitor(self):
+        if not self._main_signal_monitoring_for_pauta or not self.passthrough.is_running:
+            return False
+        print("[SIGNAL] Restaurando Señal Principal desde monitor silencioso...")
+        self._main_signal_monitoring_for_pauta = False
+        self.passthrough.set_muted(False)
+        if self._dtmf_on:
+            self._attach_dtmf_to_passthrough()
+        self._wave.set_metadata("♪ SEÑAL PRINCIPAL: Audio en vivo  •  RadioSAT XP")
+        return True
 
     def _start_dtmf_safe(self):
         """Reinicia el detector DTMF de forma segura asegurando los parámetros correctos."""
@@ -2556,13 +2631,7 @@ class MainWindow(QMainWindow):
                 return
             if self._signal_on:
                 print("[PAUTA] Deteniendo señal principal...")
-                self.btn_signal.setChecked(False)
-                self._signal_on = False
-                self._led_signal.set_on(False)
-                self._sb_led.set_on(False)
-                self.btn_signal.setStyleSheet("")
-                self._detach_dtmf_from_passthrough()
-                self.passthrough.stop()
+                self._hold_main_signal_for_pauta()
             if self._remote_on and self.remote_engine.is_playing:
                 self.remote_engine.set_muted(True)
             print("[PAUTA] Iniciando reproducción desde el inicio...")
@@ -2577,6 +2646,19 @@ class MainWindow(QMainWindow):
             self._remote_resume_pending = False
             self.engine.stop()
             self.btn_pauta.setStyleSheet("")
+            if self._main_signal_monitoring_for_pauta:
+                self._restore_main_signal_from_monitor()
+                self._signal_on = True
+                self._led_signal.set_on(True)
+                self._sb_led.set_on(True)
+                old = self.btn_signal.blockSignals(True)
+                self.btn_signal.setChecked(True)
+                self.btn_signal.blockSignals(old)
+                t = _current_theme
+                self.btn_signal.setStyleSheet(f"""
+                    QPushButton {{ background:{t['danger']};
+                        color:white; font-weight:bold; border-radius:6px; border:2px solid {t['danger']}; }}
+                """)
             if self._remote_on and not self._remote_break_active:
                 self.remote_engine.set_muted(False)
 
@@ -2592,9 +2674,13 @@ class MainWindow(QMainWindow):
                 return
             print("[DTMF] Aplicando parámetros...")
             self._apply_dtmf_params()
-            print("[DTMF] Iniciando detector...")
-            self.dtmf.start()
-            self._sb_dtmf_lbl.setText("  DTMF: Escuchando…  ")
+            if self._signal_on and self.passthrough.is_running:
+                print("[DTMF] Enganchando detector a Señal Principal...")
+                self._attach_dtmf_to_passthrough()
+            else:
+                print("[DTMF] Iniciando detector...")
+                self.dtmf.start()
+                self._sb_dtmf_lbl.setText("  DTMF: Escuchando…  ")
             t = _current_theme
             self.btn_dtmf_main.setStyleSheet(f"""
                 QPushButton {{ background:{t['warning']};
@@ -2604,6 +2690,7 @@ class MainWindow(QMainWindow):
             print(f"[DTMF] Secuencia STOP configurada: {self._dtmf_seq_stop.text().strip()}")
         else:
             print("[DTMF] Deteniendo detector...")
+            self._detach_dtmf_from_passthrough()
             self.dtmf.stop()
             self._sb_dtmf_lbl.setText("  DTMF: inactivo  ")
             self.btn_dtmf_main.setStyleSheet("")
@@ -2779,6 +2866,15 @@ class MainWindow(QMainWindow):
         self.btn_pauta.blockSignals(old)
 
     def _on_pauta_sequence_finished(self):
+        if self._main_signal_monitoring_for_pauta:
+            self._pauta_on = False
+            self._set_pauta_checked(False)
+            self.btn_pauta.setStyleSheet("")
+            self.passthrough.set_muted(True)
+            self._apply_dtmf_display_style("warning", ">>> ESPERANDO TONO DE SEÑAL PRINCIPAL <<<")
+            self._sb_state_lbl.setText("  ● Esperando Señal Principal  ")
+            self._sb_state_lbl.setStyleSheet(f"color:{T('warning')}; font-weight:bold;")
+            return
         if not self._remote_resume_pending and not self._remote_break_active:
             return
         self._pauta_on = False
@@ -2891,13 +2987,38 @@ class MainWindow(QMainWindow):
                     0.5 * np.sin(2 * np.pi * freqs[1] * np.array(t)))
             samples[:, 0] = tone
             samples[:, 1] = tone
-            out_dev = self._sd_out_dev_combo.currentData()
-            sd.play(samples, sr, device=out_dev)
-            if self._remote_dtmf_active:
-                self.remote_dtmf.feed_digit(digit)
-                self.remote_dtmf.feed_samples(samples)
         except Exception as e:
             QMessageBox.warning(self,"Error de tono", str(e))
+            return
+
+        play_error = None
+        try:
+            out_dev = self._sd_out_dev_combo.currentData()
+            sd.play(samples, sr, device=out_dev)
+        except Exception as e:
+            play_error = e
+
+        self._feed_generated_dtmf_digit(digit)
+
+        if play_error is not None:
+            QMessageBox.warning(self,"Error de tono", str(play_error))
+
+    def _feed_generated_dtmf_digit(self, digit: str):
+        remote_listening = (
+            self._remote_on and
+            (self._remote_dtmf_active or self._remote_break_active or self.remote_engine.is_playing)
+        )
+        if remote_listening:
+            play_seq = self._dtmf_seq_play.text().strip()
+            stop_seq = self._dtmf_seq_stop.text().strip()
+            remote_sequences = [seq for seq in (play_seq, stop_seq) if seq]
+            if remote_sequences and self.remote_dtmf._seq != remote_sequences:
+                self._remote_break_start_seq = play_seq
+                self._remote_break_return_seq = stop_seq
+                self.remote_dtmf.arm(remote_sequences)
+            self.remote_dtmf.feed_digit(digit, bypass_cooldown=True)
+        elif self._dtmf_on:
+            self.dtmf.feed_digit(digit)
 
     def _on_dtmf_digit(self, digit: str):
         now = time.time()
@@ -2952,13 +3073,7 @@ class MainWindow(QMainWindow):
         # 2. Detener Señal Principal si está activa
         if self._signal_on:
             print("[DTMF→PAUTA] Deteniendo Señal Principal...")
-            self._signal_on = False
-            self._led_signal.set_on(False)
-            self._sb_led.set_on(False)
-            self.btn_signal.setChecked(False)
-            self.btn_signal.setStyleSheet("")
-            self._detach_dtmf_from_passthrough()
-            self.passthrough.stop()
+            self._hold_main_signal_for_pauta()
         
         # 3. Activar Pauta Local
         self._pauta_on = True
@@ -2968,7 +3083,7 @@ class MainWindow(QMainWindow):
             QPushButton {{ background:{t['success']};
                 color:white; font-weight:bold; border-radius:6px; border:2px solid {t['success']}; }}
         """)
-        self.engine.play(0)
+        self.engine.play(0, stop_at_end=True)
         print("[DTMF→PAUTA] ✓ Pauta Local activada correctamente (desde audio 1)")
         self._dtmf_activating = False
 
@@ -3003,21 +3118,24 @@ class MainWindow(QMainWindow):
         self._sb_state_lbl.setStyleSheet(f"color:{T('danger')}; font-weight:bold;")
         
         # 3. Iniciar passthrough directamente
-        in_dev = self._dtmf_dev_combo.currentData()
-        out_dev = self._sd_out_dev_combo.currentData()
-        print(f"[DTMF→SIGNAL] Dispositivos: in={in_dev}, out={out_dev}")
-        if in_dev is not None and out_dev is not None:
-            self.passthrough.set_devices(in_dev, out_dev)
-            # DTMF ya está activo — ponerlo en modo externo (alimentado por passthrough)
-            self.dtmf.stop()
-            self.dtmf.start_external()
-            self.passthrough.register_input_callback(self.dtmf.feed_samples)
-            self.passthrough.start()
+        if self._restore_main_signal_from_monitor():
             self._wave.set_metadata("♪ SEÑAL PRINCIPAL: Audio en vivo  •  RadioSAT XP")
-            print("[DTMF→SIGNAL] ✓ Señal Principal activada correctamente")
+            print("[DTMF→SIGNAL] ✓ Señal Principal restaurada correctamente")
         else:
-            print("[DTMF→SIGNAL] ERROR: Dispositivos no configurados")
-            self._apply_dtmf_display_style("danger", ">>> ERROR: CONFIGURA DISPOSITIVOS <<<")
+            in_dev = self._dtmf_dev_combo.currentData()
+            out_dev = self._sd_out_dev_combo.currentData()
+            print(f"[DTMF→SIGNAL] Dispositivos: in={in_dev}, out={out_dev}")
+            if in_dev is not None and out_dev is not None:
+                self.passthrough.set_devices(in_dev, out_dev)
+                self.passthrough.set_muted(False)
+                # DTMF ya está activo — ponerlo en modo externo (alimentado por passthrough)
+                self._attach_dtmf_to_passthrough()
+                self.passthrough.start()
+                self._wave.set_metadata("♪ SEÑAL PRINCIPAL: Audio en vivo  •  RadioSAT XP")
+                print("[DTMF→SIGNAL] ✓ Señal Principal activada correctamente")
+            else:
+                print("[DTMF→SIGNAL] ERROR: Dispositivos no configurados")
+                self._apply_dtmf_display_style("danger", ">>> ERROR: CONFIGURA DISPOSITIVOS <<<")
         self._dtmf_activating = False
 
     def _on_dtmf_level(self, l: float, r: float):

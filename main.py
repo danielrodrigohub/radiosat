@@ -17,6 +17,7 @@ Funcionalidades implementadas:
 
 import sys
 import os
+import re
 import math
 import random
 import threading
@@ -1097,8 +1098,11 @@ class AudioPassthrough(QObject):
             
             in_dev_info = sd.query_devices(self._in_device)
             out_dev_info = sd.query_devices(self._out_device)
-            in_channels = in_dev_info['max_input_channels']
-            out_channels = out_dev_info['max_output_channels']
+            max_in = in_dev_info['max_input_channels']
+            max_out = out_dev_info['max_output_channels']
+            # Forzar stereo (2 canales) si el dispositivo lo soporta
+            in_channels = min(max_in, 2) if max_in >= 2 else max_in
+            out_channels = min(max_out, 2) if max_out >= 2 else max_out
             
             print(f"[Passthrough] Input: {in_channels} ch, Output: {out_channels} ch")
             
@@ -1109,9 +1113,16 @@ class AudioPassthrough(QObject):
                     self._audio_queue.put_nowait(indata.copy())
                 except queue.Full:
                     pass
-                mono = indata[:, 0] if indata.ndim > 1 else indata
-                rms = float(np.sqrt(np.mean(mono ** 2)))
-                self.level_update.emit(rms * 5, rms * 4.8)
+                # Calcular niveles stereo L/R
+                if indata.ndim > 1 and indata.shape[1] >= 2:
+                    left = indata[:, 0]
+                    right = indata[:, 1]
+                else:
+                    left = indata[:, 0] if indata.ndim > 1 else indata
+                    right = left
+                rms_l = float(np.sqrt(np.mean(left ** 2)))
+                rms_r = float(np.sqrt(np.mean(right ** 2)))
+                self.level_update.emit(rms_l * 5, rms_r * 5)
             
             def output_callback(outdata, frames, callback_time, status):
                 if status:
@@ -1471,6 +1482,26 @@ class XPPanel(QFrame):
 
 
 
+
+
+# ── Filtro de dispositivos de audio virtuales ──────────────────────────────
+_VIRTUAL_AUDIO_PATTERNS = [
+    r'(?i)microsoft sound mapper',
+    r'(?i)primary sound (capture\s+)?driver',
+    r'\[Loopback\]',
+    r'(?i)^baddev\d*$',
+    r'(?i)default directsound device',
+    r'(?i)default wave device',
+    r'^\s*$',
+]
+
+def _is_real_audio_device(dev_dict):
+    """Filtra dispositivos virtuales/duplicados de PortAudio en Windows."""
+    name = dev_dict.get("name", "")
+    for pat in _VIRTUAL_AUDIO_PATTERNS:
+        if re.search(pat, name):
+            return False
+    return True
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2108,20 +2139,37 @@ class MainWindow(QMainWindow):
         vu_frame.setObjectName("vuFrame")
         vu_frame.setStyleSheet(f"#vuFrame {{ background:{T('vu_bg')}; border:1px solid {T('border')}; border-radius:4px; }}")
         vu_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        vu_frame.setFixedHeight(50)
+        vu_frame.setFixedHeight(80)
         vu_outer = QVBoxLayout(vu_frame)
         vu_outer.setSpacing(1)
         vu_outer.setContentsMargins(6,4,6,4)
 
         self._vu_bars: list[VUBar] = []
         
-        # Barra VU sin etiqueta separada - el label va integrado
-        main_vu = VUBar()
-        vu_outer.addWidget(main_vu)
-        self._vu_bars.append(main_vu)
+        # Barra VU L (arriba)
+        vu_l_row = QHBoxLayout()
+        lbl_l = QLabel("L")
+        lbl_l.setStyleSheet(f"color:{T('vu_label')}; font-size:7pt; font-weight:bold;")
+        lbl_l.setFixedWidth(10)
+        vu_l_row.addWidget(lbl_l)
+        main_vu_l = VUBar()
+        vu_l_row.addWidget(main_vu_l)
+        vu_outer.addLayout(vu_l_row)
+        self._vu_bars.append(main_vu_l)
         
-        # Crear 3 barras ocultas para no romper el resto del código
-        for _ in range(3):
+        # Barra VU R (abajo)
+        vu_r_row = QHBoxLayout()
+        lbl_r = QLabel("R")
+        lbl_r.setStyleSheet(f"color:{T('vu_label')}; font-size:7pt; font-weight:bold;")
+        lbl_r.setFixedWidth(10)
+        vu_r_row.addWidget(lbl_r)
+        main_vu_r = VUBar()
+        vu_r_row.addWidget(main_vu_r)
+        vu_outer.addLayout(vu_r_row)
+        self._vu_bars.append(main_vu_r)
+        
+        # Crear 2 barras ocultas para no romper el resto del código
+        for _ in range(2):
             vb = VUBar()
             vb.hide()
             self._vu_bars.append(vb)
@@ -2622,10 +2670,12 @@ class MainWindow(QMainWindow):
                 devs = sd.query_devices()
                 for i, d in enumerate(devs):
                     name = d["name"]
-                    if d["max_input_channels"] > 0:
-                        self._dtmf_dev_combo.addItem(f"{i}: {name}", i)
-                    if d["max_output_channels"] > 0:
-                        self._out_dev_combo.addItem(f"{i}: {name}", i)
+                    if d["max_input_channels"] > 0 and _is_real_audio_device(d):
+                        ch = d["max_input_channels"]
+                        tag = " [Stereo]" if ch >= 2 else " [Mono]"
+                        self._dtmf_dev_combo.addItem(f"{name}{tag}", i)
+                    if d["max_output_channels"] > 0 and _is_real_audio_device(d):
+                        self._out_dev_combo.addItem(f"{name}", i)
             except Exception:
                 pass
         if self._dtmf_dev_combo.count() == 0:
@@ -2809,12 +2859,9 @@ class MainWindow(QMainWindow):
 
     def _on_dtmf_level(self, l: float, r: float):
         if len(self._vu_bars) >= 4:
-            # Micrófono
+            # Micrófono — solo barras ocultas (no interfiere con visualización principal)
             self._vu_bars[2].set_value(min(l, 1.0))
             self._vu_bars[3].set_value(min(r * 0.9, 1.0))
-            # Output principal (se actualiza con el micrófono porque el mic es el cable virtual)
-            self._vu_bars[0].set_value(min(l, 1.0))
-            self._vu_bars[1].set_value(min(l, 1.0))
 
     def _on_dtmf_status(self, status: str):
         if hasattr(self, '_lbl_detector_status'):
@@ -3197,8 +3244,10 @@ class MainWindow(QMainWindow):
         if SOUND_OK:
             try:
                 for i, d in enumerate(sd.query_devices()):
-                    if d["max_input_channels"] > 0:
-                        self._mic_src_combo.addItem(f"{i}: {d['name']}", i)
+                    if d["max_input_channels"] > 0 and _is_real_audio_device(d):
+                        ch = d["max_input_channels"]
+                        tag = " [Stereo]" if ch >= 2 else " [Mono]"
+                        self._mic_src_combo.addItem(f"{d['name']}{tag}", i)
             except Exception:
                 pass
         if self._mic_src_combo.count() == 0:

@@ -3475,7 +3475,7 @@ class MainWindow(QMainWindow):
         lbl_backup.setStyleSheet(f"color: {T('success')}; font-size: 9pt;")
         layout.addWidget(lbl_backup)
 
-        lbl_version = QLabel("Radio XP Automator v1.0.0")
+        lbl_version = QLabel("Radio XP Automator v1.6.0")
         lbl_version.setStyleSheet(f"color: {T('text_dim')}; font-size: 9pt;")
         layout.addWidget(lbl_version)
 
@@ -6587,7 +6587,7 @@ class MainWindow(QMainWindow):
         self._lbl_status_input=QLabel("Entrada: sin configurar"); self._lbl_status_output=QLabel("Salida: sistema predeterminado"); self._lbl_status_monitor=QLabel("Monitoreo: no configurado")
         for lab in (self._lbl_status_input,self._lbl_status_output,self._lbl_status_monitor): lab.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(lab)
         lay.addStretch(); self._lbl_status_backup=QLabel("●  Respaldo no configurado"); self._lbl_status_backup.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(self._lbl_status_backup)
-        version=QLabel("Radio XP Automator v1.0.0"); version.setStyleSheet(f"font-size:10px;color:{T('text_dim')};"); lay.addWidget(version)
+        version=QLabel("Radio XP Automator v1.6.0"); version.setStyleSheet(f"font-size:10px;color:{T('text_dim')};"); lay.addWidget(version)
         return bar
 
     def _secondary_page(self, title: str) -> tuple[QWidget, QVBoxLayout]:

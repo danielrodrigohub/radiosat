@@ -3,11 +3,17 @@
 
 import sys
 import os
+import shutil
 
 block_cipher = None
 
 # Ruta base del proyecto
 BASE = os.path.abspath('.')
+
+# Empaquetar FFmpeg dentro de la aplicación. El bus de programa lo utiliza para
+# enviar la mezcla completa (cabecera, pauta local y retorno) hacia Icecast.
+FFMPEG = shutil.which('ffmpeg')
+EXTRA_BINARIES = [(FFMPEG, '.')] if FFMPEG else []
 
 # Determinar icono según plataforma
 if sys.platform == 'darwin':
@@ -18,7 +24,7 @@ else:
 a = Analysis(
     ['main.py'],
     pathex=[BASE],
-    binaries=[],
+    binaries=EXTRA_BINARIES,
     datas=[
         # Iconos Windows XP
         ('winxpicons', 'winxpicons'),
@@ -97,8 +103,8 @@ if sys.platform == 'darwin':
         info_plist={
             'CFBundleName': 'RadioSAT XP',
             'CFBundleDisplayName': 'RadioSAT XP',
-            'CFBundleVersion': '1.0.0',
-            'CFBundleShortVersionString': '1.0.0',
+            'CFBundleVersion': '1.6.0',
+            'CFBundleShortVersionString': '1.6.0',
             'NSHighResolutionCapable': True,
             'NSMicrophoneUsageDescription': 'RadioSAT necesita acceso al micrófono para funciones de audio en tiempo real.',
         },

@@ -5,9 +5,9 @@
 ; ══════════════════════════════════════════════════════════════════════════════
 
 #define MyAppName "RadioSAT XP"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.6.0"
 #define MyAppPublisher "RadioSAT"
-#define MyAppURL "https://github.com/radiosat"
+#define MyAppURL "https://github.com/danielrodrigohub/radiosat"
 #define MyAppExeName "RadioSAT.exe"
 #define MyAppAssocName "Archivo RadioSAT"
 #define MyAppAssocExt ".radiosat"
@@ -29,7 +29,7 @@ LicenseFile=LICENSE.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 OutputDir=installer
-OutputBaseFilename=RadioSAT_Setup
+OutputBaseFilename=RadioSAT-XP-1.6.0-Setup
 SetupIconFile=assets\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes

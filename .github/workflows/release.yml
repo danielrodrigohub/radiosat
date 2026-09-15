@@ -9,9 +9,40 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: RadioSAT XP ${{ github.ref_name }}
+          body: |
+            ## RadioSAT XP ${{ github.ref_name }}
+            
+            ### Cambios en esta versión
+            - **Fix: Audio del reproductor no se escuchaba en Windows** — El selector de dispositivo de salida del reproductor ahora usa correctamente la API de QtMultimedia en lugar de sounddevice, permitiendo dirigir el audio al dispositivo correcto (Virtual Audio Cable, Realtek, etc.)
+            - Nuevo método `set_output_device()` en el motor de audio para cambiar dispositivo en caliente
+            - Separación de APIs: QtMultimedia para reproducción, sounddevice para DTMF/passthrough
+            - Mejor manejo de errores del reproductor con diagnóstico en consola
+            
+            ### Descargas
+            | Plataforma | Archivo | Instrucciones |
+            |------------|---------|---------------|
+            | macOS | `RadioSAT.dmg` | Abrir y arrastrar a Aplicaciones |
+            | Windows | `RadioSAT_Setup.exe` | Ejecutar el instalador |
+            | Windows Portable | `RadioSAT_Windows.zip` | Descomprimir y ejecutar RadioSAT.exe |
+            
+            ### Requisitos
+            - macOS 12+ o Windows 10+
+            - FFmpeg (opcional, para streams remotos)
+          draft: false
+          prerelease: false
+
   build-macos:
     name: macOS Build
     runs-on: macos-latest
+    needs: create-release
     steps:
       - uses: actions/checkout@v4
 
@@ -39,15 +70,16 @@ jobs:
             dist/RadioSAT.dmg
           rm -rf dist/dmg
 
-      - name: Upload DMG
-        uses: actions/upload-artifact@v4
+      - name: Upload DMG to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: RadioSAT-macOS
-          path: dist/RadioSAT.dmg
+          files: dist/RadioSAT.dmg
+          overwrite_files: true
 
   build-windows:
     name: Windows Build + Installer
     runs-on: windows-latest
+    needs: create-release
     steps:
       - uses: actions/checkout@v4
 
@@ -80,12 +112,6 @@ jobs:
         run: |
           Compress-Archive -Path dist\RadioSAT\* -DestinationPath dist\RadioSAT_Windows.zip
 
-      - name: Upload ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: RadioSAT-Windows-zip
-          path: dist/RadioSAT_Windows.zip
-
       - name: Create installer output dir
         shell: pwsh
         run: New-Item -ItemType Directory -Force -Path installer
@@ -108,51 +134,10 @@ jobs:
             exit 1
           }
 
-      - name: Upload Installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: RadioSAT-Installer
-          path: installer/RadioSAT_Setup.exe
-
-  release:
-    name: Create Release
-    needs: [build-macos, build-windows]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: List artifacts
-        run: find artifacts -type f -name "*.dmg" -o -name "*.zip" -o -name "*.exe"
-
-      - name: Create GitHub Release
+      - name: Upload Windows artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: RadioSAT XP ${{ github.ref_name }}
-          body: |
-            ## RadioSAT XP ${{ github.ref_name }}
-            
-            ### Cambios en esta versión
-            - **Fix: Audio del reproductor no se escuchaba en Windows** — El selector de dispositivo de salida del reproductor ahora usa correctamente la API de QtMultimedia en lugar de sounddevice, permitiendo dirigir el audio al dispositivo correcto (Virtual Audio Cable, Realtek, etc.)
-            - Nuevo método `set_output_device()` en el motor de audio para cambiar dispositivo en caliente
-            - Separación de APIs: QtMultimedia para reproducción, sounddevice para DTMF/passthrough
-            - Mejor manejo de errores del reproductor con diagnóstico en consola
-            
-            ### Descargas
-            | Plataforma | Archivo | Instrucciones |
-            |------------|---------|---------------|
-            | macOS | `RadioSAT.dmg` | Abrir y arrastrar a Aplicaciones |
-            | Windows | `RadioSAT_Setup.exe` | Ejecutar el instalador |
-            | Windows Portable | `RadioSAT_Windows.zip` | Descomprimir y ejecutar RadioSAT.exe |
-            
-            ### Requisitos
-            - macOS 12+ o Windows 10+
-            - FFmpeg (opcional, para streams remotos)
           files: |
-            artifacts/RadioSAT-macOS/RadioSAT.dmg
-            artifacts/RadioSAT-Windows-zip/RadioSAT_Windows.zip
-            artifacts/RadioSAT-Installer/RadioSAT_Setup.exe
-          draft: false
-          prerelease: false
+            dist/RadioSAT_Windows.zip
+            installer/RadioSAT_Setup.exe
+          overwrite_files: true

@@ -24,6 +24,7 @@ import threading
 import queue
 import time
 import subprocess
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -34,7 +35,8 @@ from PyQt6.QtWidgets import (
     QProgressBar, QTabWidget, QComboBox, QSpinBox, QDoubleSpinBox,
     QLineEdit, QTableWidget, QTableWidgetItem, QHeaderView, QSlider,
     QFrame, QSizePolicy, QFileDialog, QMessageBox, QInputDialog,
-    QStatusBar, QToolBar, QStyle
+    QStatusBar, QToolBar, QStyle, QDialog, QGroupBox, QStackedWidget,
+    QAbstractItemView
 )
 from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal, QObject, QThread, QUrl, QProcess, QRectF
 from PyQt6.QtGui import (
@@ -132,81 +134,93 @@ XP_ICON_MAP = {
 #  SISTEMA DE TEMAS
 # ══════════════════════════════════════════════════════════════════════════════
 THEME_DARK = {
-    "bg_primary":     "#1E1E2E",
-    "bg_surface":     "#2A2A3C",
-    "bg_surface_alt": "#232336",
-    "bg_hover":       "#32324A",
-    "bg_input":       "#1A1A2C",
-    "border":         "#3A3A4C",
-    "border_focus":   "#4A9EFF",
-    "text":           "#E0E0E0",
-    "text_secondary": "#8888A0",
-    "text_dim":       "#666680",
-    "accent":         "#4A9EFF",
-    "success":        "#00CC66",
-    "danger":         "#FF4444",
-    "warning":        "#FFB020",
-    "menu_bg":        "#252538",
-    "menu_hover":     "#3A3A54",
-    "scrollbar_bg":   "#2A2A3C",
-    "scrollbar_handle":"#444460",
-    "scrollbar_hover":"#5A5A78",
-    "header_bg":      "#282840",
-    "slider_groove":  "#3A3A4C",
-    "slider_sub":     "#4A9EFF",
-    "clock_bg":       "#0A0F14",
-    "clock_color":    "#FFB020",
-    "vu_bg":          "#0E0E14",
-    "vu_green":       "#00CC66",
-    "vu_amber":       "#FFB020",
-    "vu_red":         "#FF4444",
-    "vu_label":       "#8888A0",
-    "wave_bg":        "#0A0A12",
-    "wave_text":      "#00FF88",
-    "titlebar_start": "#2A4A8A",
-    "titlebar_mid":   "#3366BB",
-    "titlebar_end":   "#1E3A7A",
-    "panel_bg":       "#2A2A3C",
-    "panel_border":   "#3A3A4C",
+    "background":         "#101820",
+    "surface":            "#151F2A",
+    "surface_raised":     "#1D2936",
+    "border":             "#354657",
+    "text_primary":       "#EDF3F8",
+    "text_secondary":     "#B2C0CD",
+    "text_dim":           "#7A8A9A",
+    "accent":             "#1689DF",
+    "accent_text":        "#63C6FF",
+    "success":            "#39DD69",
+    "warning":            "#FFC34D",
+    "danger":             "#F06464",
+    "focus":              "#8AD4FF",
+    "bg_primary":         "#101820",
+    "bg_surface":         "#151F2A",
+    "bg_surface_alt":     "#1D2936",
+    "bg_hover":           "#253342",
+    "bg_input":           "#1A2632",
+    "border_focus":       "#1689DF",
+    "text":               "#EDF3F8",
+    "menu_bg":            "#151F2A",
+    "menu_hover":         "#253342",
+    "scrollbar_bg":       "#151F2A",
+    "scrollbar_handle":   "#354657",
+    "scrollbar_hover":    "#4A5D70",
+    "header_bg":          "#1D2936",
+    "slider_groove":      "#354657",
+    "slider_sub":         "#1689DF",
+    "clock_bg":           "#0A0F14",
+    "clock_color":        "#FFC34D",
+    "vu_bg":              "#0A1018",
+    "vu_green":           "#39DD69",
+    "vu_amber":           "#FFC34D",
+    "vu_red":             "#F06464",
+    "vu_label":           "#7A8A9A",
+    "wave_bg":            "#0A1018",
+    "wave_text":          "#39DD69",
+    "titlebar_start":     "#1D2936",
+    "titlebar_mid":       "#253342",
+    "titlebar_end":       "#151F2A",
+    "panel_bg":           "#151F2A",
+    "panel_border":       "#354657",
 }
 
 THEME_LIGHT = {
-    "bg_primary":     "#F5F5F7",
-    "bg_surface":     "#FFFFFF",
-    "bg_surface_alt": "#F0F0F4",
-    "bg_hover":       "#E8E8F0",
-    "bg_input":       "#FFFFFF",
-    "border":         "#D0D0D8",
-    "border_focus":   "#2A7FFF",
-    "text":           "#1A1A2E",
-    "text_secondary": "#666680",
-    "text_dim":       "#9999AA",
-    "accent":         "#2A7FFF",
-    "success":        "#00AA55",
-    "danger":         "#DD2222",
-    "warning":        "#E09000",
-    "menu_bg":        "#FFFFFF",
-    "menu_hover":     "#E0E8F8",
-    "scrollbar_bg":   "#F0F0F4",
-    "scrollbar_handle":"#C8C8D0",
-    "scrollbar_hover":"#A8A8B8",
-    "header_bg":      "#E8E8F0",
-    "slider_groove":  "#D0D0D8",
-    "slider_sub":     "#2A7FFF",
-    "clock_bg":       "#0A0F14",
-    "clock_color":    "#FFB020",
-    "vu_bg":          "#0E0E14",
-    "vu_green":       "#00CC66",
-    "vu_amber":       "#FFB020",
-    "vu_red":         "#FF4444",
-    "vu_label":       "#8888A0",
-    "wave_bg":        "#0A0A12",
-    "wave_text":      "#00FF88",
-    "titlebar_start": "#3366CC",
-    "titlebar_mid":   "#4488EE",
-    "titlebar_end":   "#2255AA",
-    "panel_bg":       "#FFFFFF",
-    "panel_border":   "#D0D0D8",
+    "background":         "#F5F7FA",
+    "surface":            "#FFFFFF",
+    "surface_raised":     "#F0F4F8",
+    "border":             "#D0D8E0",
+    "text_primary":       "#1A2332",
+    "text_secondary":     "#5A6A7A",
+    "text_dim":           "#8A9AAA",
+    "accent":             "#1689DF",
+    "accent_text":        "#0A6ABF",
+    "success":            "#2BBF55",
+    "warning":            "#E0A030",
+    "danger":             "#D04040",
+    "focus":              "#1689DF",
+    "bg_primary":         "#F5F7FA",
+    "bg_surface":         "#FFFFFF",
+    "bg_surface_alt":     "#F0F4F8",
+    "bg_hover":           "#E8EEF4",
+    "bg_input":           "#FFFFFF",
+    "border_focus":       "#1689DF",
+    "text":               "#1A2332",
+    "menu_bg":            "#FFFFFF",
+    "menu_hover":         "#E8EEF4",
+    "scrollbar_bg":       "#F0F4F8",
+    "scrollbar_handle":   "#D0D8E0",
+    "scrollbar_hover":    "#B0B8C0",
+    "header_bg":          "#F0F4F8",
+    "slider_groove":      "#D0D8E0",
+    "slider_sub":         "#1689DF",
+    "clock_bg":           "#1A2332",
+    "clock_color":        "#FFC34D",
+    "vu_bg":              "#E8EEF4",
+    "vu_green":           "#2BBF55",
+    "vu_amber":           "#E0A030",
+    "vu_red":             "#D04040",
+    "vu_label":           "#5A6A7A",
+    "wave_bg":            "#E8EEF4",
+    "wave_text":          "#2BBF55",
+    "titlebar_start":     "#1689DF",
+    "titlebar_mid":       "#2A9AEF",
+    "titlebar_end":       "#0A6ABF",
+    "panel_bg":           "#FFFFFF",
+    "panel_border":       "#D0D8E0",
 }
 
 _current_theme = THEME_DARK
@@ -221,20 +235,20 @@ def T(key: str) -> str:
 def generate_qss() -> str:
     t = _current_theme
     return f"""
-QMainWindow {{ background: {t['bg_primary']}; }}
-QWidget {{ font-family: "Helvetica Neue", "Segoe UI", "SF Pro Display", Helvetica, Arial; font-size: 9pt; color: {t['text']}; }}
+QMainWindow {{ background: {t.get('background', t.get('bg_primary', '#101820'))}; }}
+QWidget {{ font-family: "Helvetica Neue", "Segoe UI", "SF Pro Display", Helvetica, Arial; font-size: 9pt; color: {t.get('text_primary', t.get('text', '#EDF3F8'))}; }}
 QMenuBar {{
-    background: {t['bg_surface']};
+    background: {t.get('surface', t.get('bg_surface', '#151F2A'))};
     border-bottom: 1px solid {t['border']};
 }}
 QMenuBar::item {{ padding: 6px 12px; }}
 QMenuBar::item:selected {{ background: {t['accent']}; color: white; border-radius: 4px; }}
-QMenu {{ background: {t['menu_bg']}; border: 1px solid {t['border']}; border-radius: 6px; padding: 4px; }}
+QMenu {{ background: {t.get('menu_bg', t.get('surface', '#151F2A'))}; border: 1px solid {t['border']}; border-radius: 6px; padding: 4px; }}
 QMenu::item {{ padding: 6px 28px; border-radius: 4px; }}
 QMenu::item:selected {{ background: {t['accent']}; color: white; }}
 QMenu::separator {{ height: 1px; background: {t['border']}; margin: 4px 8px; }}
 QToolBar {{
-    background: {t['bg_surface']};
+    background: {t.get('surface', t.get('bg_surface', '#151F2A'))};
     border-bottom: 1px solid {t['border']};
     spacing: 4px; padding: 4px;
 }}
@@ -242,16 +256,16 @@ QToolBar::separator {{ width: 1px; background: {t['border']}; margin: 4px 6px; }
 QToolButton {{
     background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 4px;
 }}
-QToolButton:hover {{ background: {t['bg_hover']}; border: 1px solid {t['border']}; }}
+QToolButton:hover {{ background: {t.get('bg_hover', '#253342')}; border: 1px solid {t['border']}; }}
 QToolButton:pressed {{ background: {t['border']}; }}
 QPushButton {{
-    background: {t['bg_surface']};
+    background: {t.get('surface', t.get('bg_surface', '#151F2A'))};
     border: 1px solid {t['border']};
-    border-radius: 6px;
-    padding: 6px 14px; min-height: 24px;
+    border-radius: 4px;
+    padding: 6px 14px; min-height: 36px;
 }}
 QPushButton:hover {{
-    background: {t['bg_hover']};
+    background: {t.get('bg_hover', '#253342')};
     border-color: {t['accent']};
 }}
 QPushButton:pressed {{
@@ -262,28 +276,28 @@ QPushButton:checked {{
     color: white; font-weight: bold;
     border-color: {t['accent']};
 }}
-QPushButton:disabled {{ color: {t['text_dim']}; background: {t['bg_surface_alt']}; border-color: {t['border']}; }}
-QTabWidget::pane {{ border: 1px solid {t['border']}; background: {t['bg_surface']}; border-radius: 6px; }}
+QPushButton:disabled {{ color: {t.get('text_dim', '#7A8A9A')}; background: {t.get('bg_surface_alt', '#1D2936')}; border-color: {t['border']}; }}
+QTabWidget::pane {{ border: 1px solid {t['border']}; background: {t.get('surface', t.get('bg_surface', '#151F2A'))}; border-radius: 4px; }}
 QTabBar::tab {{
-    background: {t['bg_surface_alt']};
+    background: {t.get('bg_surface_alt', '#1D2936')};
     border: 1px solid {t['border']};
-    border-bottom-color: {t['bg_surface']};
+    border-bottom-color: {t.get('surface', t.get('bg_surface', '#151F2A'))};
     padding: 7px 16px; margin-right: 2px;
-    border-top-left-radius: 6px; border-top-right-radius: 6px;
+    border-top-left-radius: 4px; border-top-right-radius: 4px;
 }}
-QTabBar::tab:selected {{ background: {t['bg_surface']}; font-weight: bold; color: {t['accent']}; border-bottom: none; }}
-QTabBar::tab:hover:!selected {{ background: {t['bg_hover']}; }}
+QTabBar::tab:selected {{ background: {t.get('surface', t.get('bg_surface', '#151F2A'))}; font-weight: bold; color: {t['accent']}; border-bottom: none; }}
+QTabBar::tab:hover:!selected {{ background: {t.get('bg_hover', '#253342')}; }}
 QTableWidget {{
-    background: {t['bg_input']};
+    background: {t.get('bg_input', '#1A2632')};
     gridline-color: {t['border']};
     border: 1px solid {t['border']};
-    border-radius: 6px;
-    alternate-background-color: {t['bg_surface_alt']};
+    border-radius: 4px;
+    alternate-background-color: {t.get('bg_surface_alt', '#1D2936')};
     selection-background-color: {t['accent']};
     selection-color: white;
 }}
 QTableWidget::item {{ padding: 4px 6px; }}
-QTableWidget::item:hover {{ background: {t['bg_hover']}; }}
+QTableWidget::item:hover {{ background: {t.get('bg_hover', '#253342')}; }}
 QHeaderView::section {{
     background: {t['header_bg']};
     border: 1px solid {t['border']};
@@ -291,33 +305,33 @@ QHeaderView::section {{
     border-radius: 0;
 }}
 QLineEdit, QSpinBox, QDoubleSpinBox {{
-    background-color: {t['bg_input']};
-    color: {t['text']};
+    background-color: {t.get('bg_input', '#1A2632')};
+    color: {t.get('text_primary', t.get('text', '#EDF3F8'))};
     border: 1px solid {t['border']};
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 5px 8px;
 }}
 QComboBox {{
-    background-color: {t['bg_input']};
-    color: {t['text']};
+    background-color: {t.get('bg_input', '#1A2632')};
+    color: {t.get('text_primary', t.get('text', '#EDF3F8'))};
     border: 1px solid {t['border']};
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 5px 8px;
 }}
 QComboBox:focus, QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
     border: 2px solid {t['border_focus']};
 }}
 QComboBox QAbstractItemView {{
-    background-color: {t['bg_input']};
-    color: {t['text']};
+    background-color: {t.get('bg_input', '#1A2632')};
+    color: {t.get('text_primary', t.get('text', '#EDF3F8'))};
     selection-background-color: {t['accent']};
     selection-color: #FFFFFF;
     border: 1px solid {t['border']};
-    border-radius: 6px;
+    border-radius: 4px;
 }}
 QDialog, QMessageBox {{
-    background-color: {t['bg_primary']};
-    color: {t['text']};
+    background-color: {t.get('background', t.get('bg_primary', '#101820'))};
+    color: {t.get('text_primary', t.get('text', '#EDF3F8'))};
 }}
 QSlider::groove:horizontal {{
     height: 6px; background: {t['slider_groove']}; border: 1px solid {t['border']}; border-radius: 3px;
@@ -332,27 +346,27 @@ QSlider::sub-page:horizontal {{
     border: 1px solid {t['border']}; border-radius: 3px;
 }}
 QStatusBar {{
-    background: {t['bg_surface']};
+    background: {t.get('surface', t.get('bg_surface', '#151F2A'))};
     border-top: 1px solid {t['border']};
-    color: {t['text_secondary']};
+    color: {t.get('text_secondary', '#B2C0CD')};
 }}
 QScrollBar:vertical {{
-    background: {t['scrollbar_bg']}; width: 12px; border: none; border-radius: 6px;
+    background: {t.get('scrollbar_bg', '#151F2A')}; width: 12px; border: none; border-radius: 6px;
 }}
 QScrollBar::handle:vertical {{
-    background: {t['scrollbar_handle']}; border: none; border-radius: 5px; min-height: 30px;
+    background: {t.get('scrollbar_handle', '#354657')}; border: none; border-radius: 5px; min-height: 30px;
 }}
-QScrollBar::handle:vertical:hover {{ background: {t['scrollbar_hover']}; }}
+QScrollBar::handle:vertical:hover {{ background: {t.get('scrollbar_hover', '#4A5D70')}; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     background: none; height: 0px; border: none;
 }}
 QScrollBar:horizontal {{
-    background: {t['scrollbar_bg']}; height: 12px; border: none; border-radius: 6px;
+    background: {t.get('scrollbar_bg', '#151F2A')}; height: 12px; border: none; border-radius: 6px;
 }}
 QScrollBar::handle:horizontal {{
-    background: {t['scrollbar_handle']}; border: none; border-radius: 5px; min-width: 30px;
+    background: {t.get('scrollbar_handle', '#354657')}; border: none; border-radius: 5px; min-width: 30px;
 }}
-QScrollBar::handle:horizontal:hover {{ background: {t['scrollbar_hover']}; }}
+QScrollBar::handle:horizontal:hover {{ background: {t.get('scrollbar_hover', '#4A5D70')}; }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
     background: none; width: 0px; border: none;
 }}
@@ -362,6 +376,15 @@ QSplitter::handle {{
 }}
 QSplitter::handle:hover {{
     background: {t['accent']};
+}}
+QToolTip {{
+    color: {t['text_primary']};
+    background-color: {t['surface_raised']};
+    border: 1px solid {t['border_focus']};
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 11px;
+    opacity: 255;
 }}
 QLabel {{
     color: {t['text']};
@@ -1322,6 +1345,403 @@ class AudioPassthrough(QObject):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  CAPTURA LOOPBACK (captura la salida de audio del sistema)
+# ══════════════════════════════════════════════════════════════════════════════
+class AudioLoopbackCapture(QObject):
+    """Captura audio de salida del sistema (loopback) para transmitir."""
+    audio_data = pyqtSignal(bytes)
+    level_update = pyqtSignal(float, float)
+    error_signal = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._running = False
+        self._thread = None
+        self._sr = 44100
+        self._block = 4096
+        self._device = None
+        self._channels = 2
+        self._external_callbacks = []
+
+    def register_callback(self, cb):
+        if cb not in self._external_callbacks:
+            self._external_callbacks.append(cb)
+
+    def unregister_callback(self, cb):
+        self._external_callbacks = [c for c in self._external_callbacks if c != cb]
+
+    def set_device(self, device_id):
+        self._device = device_id
+
+    def set_sample_rate(self, sr):
+        self._sr = sr
+
+    def set_channels(self, ch):
+        self._channels = ch
+
+    @property
+    def is_running(self):
+        return self._running
+
+    def start(self):
+        if not SOUND_OK:
+            self.error_signal.emit("sounddevice no disponible")
+            return
+        if self._running:
+            return
+        if self._device is None:
+            self.error_signal.emit("Dispositivo loopback no configurado")
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=2.0)
+            self._thread = None
+
+    def _run(self):
+        try:
+            print(f"[Loopback] Iniciando captura: device={self._device}, sr={self._sr}, ch={self._channels}")
+
+            def callback(indata, frames, time_info, status):
+                if status:
+                    print(f"[Loopback] Status: {status}")
+                data = indata.copy()
+                raw_bytes = data.tobytes()
+                self.audio_data.emit(raw_bytes)
+                for cb in list(self._external_callbacks):
+                    try:
+                        cb(data)
+                    except Exception:
+                        pass
+                if data.ndim > 1 and data.shape[1] >= 2:
+                    left = data[:, 0]
+                    right = data[:, 1]
+                else:
+                    left = data[:, 0] if data.ndim > 1 else data
+                    right = left
+                rms_l = float(np.sqrt(np.mean(left ** 2)))
+                rms_r = float(np.sqrt(np.mean(right ** 2)))
+                self.level_update.emit(rms_l * 5, rms_r * 5)
+
+            with sd.InputStream(
+                device=self._device,
+                samplerate=self._sr,
+                channels=self._channels,
+                blocksize=self._block,
+                dtype="float32",
+                callback=callback
+            ) as stream:
+                self._stream = stream
+                print(f"[Loopback] Stream abierto")
+                while self._running:
+                    sd.sleep(100)
+        except Exception as e:
+            print(f"[Loopback] ERROR: {e}")
+            self.error_signal.emit(f"Error captura loopback: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  ENCODER DE AUDIO (FFmpeg subprocess)
+# ══════════════════════════════════════════════════════════════════════════════
+class StreamEncoder(QObject):
+    """Codifica audio PCM a Opus o MP3 usando FFmpeg."""
+    encoded_data = pyqtSignal(bytes)
+    error_signal = pyqtSignal(str)
+    status_signal = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._proc = None
+        self._running = False
+        self._thread = None
+        self._codec = "opus"
+        self._bitrate = 128
+        self._sample_rate = 44100
+        self._channels = 2
+
+    def set_codec(self, codec):
+        self._codec = codec
+
+    def set_bitrate(self, bitrate):
+        self._bitrate = bitrate
+
+    def set_sample_rate(self, sr):
+        self._sample_rate = sr
+
+    def set_channels(self, ch):
+        self._channels = ch
+
+    @property
+    def is_running(self):
+        return self._running
+
+    def start(self):
+        if self._running:
+            return
+        try:
+            ff = ffmpeg_path()
+            if self._codec == "opus":
+                codec_args = ["-c:a", "libopus", "-b:a", f"{self._bitrate}k",
+                              "-vbr", "on", "-compression_level", "10"]
+                fmt = "opus"
+            else:
+                codec_args = ["-c:a", "libmp3lame", "-b:a", f"{self._bitrate}k"]
+                fmt = "mp3"
+
+            args = [
+                ff, "-hide_banner", "-nostdin", "-loglevel", "error",
+                "-f", "f32le",
+                "-ar", str(self._sample_rate),
+                "-ac", str(self._channels),
+                "-i", "pipe:0",
+                "-vn", "-sn", "-dn",
+            ] + codec_args + [
+                "-f", fmt,
+                "pipe:1"
+            ]
+
+            self._proc = subprocess.Popen(
+                args,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=65536
+            )
+            self._running = True
+            self._thread = threading.Thread(target=self._read_output, daemon=True)
+            self._thread.start()
+            self.status_signal.emit(f"Encoder {self._codec.upper()} iniciado")
+            print(f"[Encoder] Iniciado: {self._codec} @ {self._bitrate}k, {self._sample_rate}Hz, {self._channels}ch")
+        except Exception as e:
+            self.error_signal.emit(f"Error iniciando encoder: {e}")
+
+    def stop(self):
+        self._running = False
+        if self._proc:
+            try:
+                self._proc.stdin.close()
+            except:
+                pass
+            try:
+                self._proc.terminate()
+                self._proc.wait(timeout=2)
+            except:
+                try:
+                    self._proc.kill()
+                except:
+                    pass
+            self._proc = None
+        if self._thread:
+            self._thread.join(timeout=2)
+            self._thread = None
+        self.status_signal.emit("Encoder detenido")
+
+    def write_pcm(self, data: bytes):
+        if self._proc and self._running:
+            try:
+                self._proc.stdin.write(data)
+                self._proc.stdin.flush()
+            except Exception as e:
+                self.error_signal.emit(f"Error escribiendo al encoder: {e}")
+
+    def _read_output(self):
+        try:
+            while self._running:
+                chunk = self._proc.stdout.read(65536)
+                if not chunk:
+                    break
+                self.encoded_data.emit(chunk)
+        except Exception as e:
+            if self._running:
+                self.error_signal.emit(f"Error leyendo encoder: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  CLIENTE DE STREAMING (Icecast/Shoutcast)
+# ══════════════════════════════════════════════════════════════════════════════
+class StreamClient(QObject):
+    """Envía datos codificados a servidor Icecast/Shoutcast vía HTTP PUT."""
+    connected = pyqtSignal()
+    disconnected = pyqtSignal()
+    error_signal = pyqtSignal(str)
+    status_signal = pyqtSignal(str)
+    bytes_sent = pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._url = ""
+        self._username = "source"
+        self._password = ""
+        self._mount = "/live"
+        self._server_type = "icecast"
+        self._name = "RadioSAT XP"
+        self._genre = "Various"
+        self._description = ""
+        self._content_type = "audio/mpeg"
+        self._running = False
+        self._thread = None
+        self._conn = None
+        self._total_sent = 0
+        self._reconnect_delay = 1
+        self._max_reconnect_delay = 30
+        self._data_queue = queue.Queue(maxsize=256)
+
+    def set_server(self, url, port, mount, username, password, server_type="icecast",
+                   content_type="audio/mpeg"):
+        self._url = f"{url}:{port}"
+        self._mount = mount if mount.startswith("/") else f"/{mount}"
+        self._username = username
+        self._password = password
+        self._server_type = server_type
+        self._content_type = content_type
+
+    def set_metadata(self, name, genre, description):
+        self._name = name
+        self._genre = genre
+        self._description = description
+
+    @property
+    def is_connected(self):
+        return self._running and self._conn is not None
+
+    @property
+    def total_bytes_sent(self):
+        return self._total_sent
+
+    def start(self):
+        if self._running:
+            return
+        if not self._url or not self._password:
+            self.error_signal.emit("URL o contraseña no configurada")
+            return
+        self._total_sent = 0
+        while not self._data_queue.empty():
+            try:
+                self._data_queue.get_nowait()
+            except queue.Empty:
+                break
+        self._running = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._running = False
+        if self._conn:
+            try:
+                self._conn.close()
+            except:
+                pass
+            self._conn = None
+        if self._thread:
+            self._thread.join(timeout=3)
+            self._thread = None
+        self.disconnected.emit()
+        self.status_signal.emit("Desconectado")
+
+    def send_data(self, data: bytes):
+        if not self._running or not data:
+            return False
+        try:
+            self._data_queue.put_nowait(data)
+            return True
+        except queue.Full:
+            try:
+                self._data_queue.get_nowait()
+                self._data_queue.put_nowait(data)
+                self.status_signal.emit("Buffer de transmisión lleno; descartando audio antiguo")
+                return True
+            except queue.Empty:
+                return False
+
+    def _connect(self):
+        import base64
+        import socket
+        import ssl
+        import urllib.parse
+
+        try:
+            parsed = urllib.parse.urlparse(self._url if "://" in self._url else f"http://{self._url}")
+            host = parsed.hostname
+            port = parsed.port or (443 if parsed.scheme == "https" else 8000)
+            sock = socket.create_connection((host, port), timeout=10)
+            if parsed.scheme == "https":
+                sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
+            auth = base64.b64encode(f"{self._username}:{self._password}".encode()).decode()
+            path = self._mount if self._server_type == "icecast" else "/"
+            method = "PUT" if self._server_type == "icecast" else "SOURCE"
+            headers = [
+                f"{method} {path} HTTP/1.0", f"Host: {host}:{port}",
+                f"Authorization: Basic {auth}", f"Content-Type: {self._content_type}",
+                "User-Agent: RadioSAT XP/1.0", f"Ice-Name: {self._name}",
+                f"Ice-Genre: {self._genre}", f"Ice-Description: {self._description}",
+                "Ice-Public: 0", "Connection: keep-alive", "", "",
+            ]
+            sock.sendall("\r\n".join(headers).encode("utf-8"))
+            response = b""
+            while b"\r\n\r\n" not in response and len(response) < 16384:
+                chunk = sock.recv(2048)
+                if not chunk:
+                    break
+                response += chunk
+            status_line = response.split(b"\r\n", 1)[0].decode("latin-1", errors="replace")
+            accepted = " 200 " in f" {status_line} " or " 201 " in f" {status_line} " or status_line.startswith("OK2")
+            if accepted:
+                sock.settimeout(10)
+                self._conn = sock
+                self._reconnect_delay = 1
+                self.status_signal.emit(f"Conectado a {host}:{port}{path}")
+                self.connected.emit()
+                return True
+            sock.close()
+            self.error_signal.emit(f"Servidor rechazó conexión: {status_line or 'sin respuesta'}")
+            return False
+        except Exception as e:
+            self._conn = None
+            self.error_signal.emit(f"Error conectando: {e}")
+            return False
+
+    def _reconnect(self):
+        if self._conn:
+            try:
+                self._conn.close()
+            except:
+                pass
+            self._conn = None
+        import time
+        self.status_signal.emit(f"Reconectando en {self._reconnect_delay}s...")
+        time.sleep(self._reconnect_delay)
+        self._reconnect_delay = min(self._reconnect_delay * 2, self._max_reconnect_delay)
+        self._connect()
+
+    def _run(self):
+        while self._running:
+            if self._conn is None and not self._connect():
+                time.sleep(self._reconnect_delay)
+                self._reconnect_delay = min(self._reconnect_delay * 2, self._max_reconnect_delay)
+                continue
+            try:
+                data = self._data_queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
+            try:
+                self._conn.sendall(data)
+                self._total_sent += len(data)
+                self.bytes_sent.emit(len(data))
+            except Exception as e:
+                self.error_signal.emit(f"Error enviando datos: {e}")
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass
+                self._conn = None
+                self.disconnected.emit()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  WORKER TTS (hilo aparte para no bloquear UI)
 # ══════════════════════════════════════════════════════════════════════════════
 class TTSWorker(QThread):
@@ -1388,6 +1808,76 @@ class LEDIndicator(QWidget):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(255, 255, 255, 100))
             p.drawEllipse(5, 4, 5, 4)
+
+
+class MediaLibraryTable(QTableWidget):
+    """Tabla origen para arrastrar uno o varios audios de la biblioteca."""
+
+    MIME_TYPE = "application/x-radiosat-audio-paths"
+
+    def __init__(self, rows=0, columns=0, parent=None):
+        super().__init__(rows, columns, parent)
+        self.setDragEnabled(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
+
+    def mimeData(self, items):
+        mime = super().mimeData(items)
+        paths = []
+        for row in sorted({item.row() for item in items}):
+            path_item = self.item(row, 5)
+            if path_item and path_item.text() and path_item.text() not in paths:
+                paths.append(path_item.text())
+        if paths:
+            import json
+            mime.setData(self.MIME_TYPE, json.dumps(paths).encode("utf-8"))
+        return mime
+
+
+class AudioDropTable(QTableWidget):
+    """Tabla destino que recibe audios desde la biblioteca o Finder."""
+
+    filesDropped = pyqtSignal(list)
+
+    def __init__(self, rows=0, columns=0, parent=None):
+        super().__init__(rows, columns, parent)
+        self.setAcceptDrops(True)
+        self.viewport().setAcceptDrops(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
+
+    @staticmethod
+    def _paths_from_mime(mime):
+        paths = []
+        if mime.hasFormat(MediaLibraryTable.MIME_TYPE):
+            try:
+                import json
+                paths.extend(json.loads(bytes(mime.data(MediaLibraryTable.MIME_TYPE)).decode("utf-8")))
+            except (TypeError, ValueError, UnicodeDecodeError):
+                pass
+        if mime.hasUrls():
+            paths.extend(url.toLocalFile() for url in mime.urls() if url.isLocalFile())
+        return [path for path in dict.fromkeys(paths) if path]
+
+    def dragEnterEvent(self, event):
+        if self._paths_from_mime(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if self._paths_from_mime(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        paths = self._paths_from_mime(event.mimeData())
+        if not paths:
+            event.ignore()
+            return
+        self.filesDropped.emit(paths)
+        event.acceptProposedAction()
 
 
 class VUBar(QWidget):
@@ -1555,28 +2045,34 @@ class WaveformWidget(QWidget):
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._text)
 
 
-class LiveClock(QLCDNumber):
+class LiveClock(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setDigitCount(8)
-        self.setSegmentStyle(QLCDNumber.SegmentStyle.Filled)
+        self.setObjectName("liveClock")
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setAccessibleName("Hora local")
         t = _current_theme
+        clock_background = t['surface_raised'] if t is THEME_LIGHT else t['clock_bg']
         self.setStyleSheet(f"""
-            QLCDNumber {{
-                background: {t['clock_bg']};
-                color: {t['clock_color']};
+            QLabel#liveClock {{
+                background: {clock_background};
+                color: {t['text_primary']};
                 border: 1px solid {t['border']};
-                border-radius: 6px;
+                border-radius: 5px;
+                padding: 6px 14px;
+                font-size: 28px;
+                font-weight: 700;
             }}
         """)
-        self.setMinimumHeight(65)
+        self.setMinimumSize(210, 52)
         t2 = QTimer(self)
         t2.timeout.connect(self._tick)
         t2.start(1000)
+        self._timer = t2
         self._tick()
 
     def _tick(self):
-        self.display(datetime.now().strftime("%H:%M:%S"))
+        self.setText(datetime.now().strftime("%H:%M:%S"))
 
 
 class XPTitleBar(QFrame):
@@ -1672,14 +2168,244 @@ def _is_real_audio_device(dev_dict):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  DIÁLOGO DE CONFIGURACIÓN DEL ENCODER
+# ══════════════════════════════════════════════════════════════════════════════
+class EncoderSettingsDialog(QDialog):
+    """Diálogo para configurar el encoder de streaming."""
+
+    def __init__(self, parent=None, settings=None):
+        super().__init__(parent)
+        self.setWindowTitle("Configuración del Encoder")
+        self.setModal(True)
+        self.resize(840, 690)
+        self.setMinimumSize(760, 650)
+        self._settings = settings or {}
+        self._setup_ui()
+        self._load_settings()
+
+    def _setup_ui(self):
+        t = _current_theme
+        self.setObjectName("encoderDialog")
+        self.setStyleSheet(f"""
+            QDialog#encoderDialog {{ background:{t['background']}; color:{t['text_primary']}; }}
+            QGroupBox {{ background:{t['surface']}; border:1px solid {t['border']};
+                border-radius:7px; margin-top:12px; padding-top:12px;
+                font-size:13px; font-weight:700; }}
+            QGroupBox::title {{ subcontrol-origin:margin; left:12px; padding:0 6px;
+                color:{t['accent_text']}; background:{t['surface']}; }}
+            QGroupBox QLabel {{ color:{t['text_secondary']}; font-size:12px; font-weight:500; }}
+            QLineEdit, QComboBox, QSpinBox {{ min-height:26px; max-height:30px;
+                padding:2px 7px; font-size:12px; }}
+        """)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 18, 20, 16)
+
+        header = QHBoxLayout(); header.setSpacing(10)
+        icon = QLabel(); icon_pixmap = xp_pixmap("Chip.png", 38)
+        if not icon_pixmap.isNull(): icon.setPixmap(icon_pixmap)
+        icon.setFixedSize(42, 42); header.addWidget(icon)
+        heading = QVBoxLayout(); heading.setSpacing(1)
+        title = QLabel("Encoder y streaming")
+        title.setStyleSheet(f"font-size:21px;font-weight:800;color:{t['text_primary']};")
+        subtitle = QLabel("Configura la calidad, el servidor y la captura de programa.")
+        subtitle.setStyleSheet(f"font-size:12px;color:{t['text_secondary']};")
+        heading.addWidget(title); heading.addWidget(subtitle)
+        header.addLayout(heading, 1); layout.addLayout(header)
+
+        columns = QHBoxLayout(); columns.setSpacing(12)
+
+        server_group = QGroupBox("Servidor de streaming")
+        server_layout = QGridLayout(server_group)
+        server_layout.setContentsMargins(14, 18, 14, 14)
+        server_layout.setHorizontalSpacing(12); server_layout.setVerticalSpacing(8)
+        server_layout.setColumnMinimumWidth(0, 86); server_layout.setColumnStretch(1, 1)
+        self._server_type_combo = QComboBox(); self._server_type_combo.addItems(["Icecast", "Shoutcast"])
+        self._host_edit = QLineEdit(); self._host_edit.setPlaceholderText("stream.ejemplo.com")
+        self._port_spin = QSpinBox(); self._port_spin.setRange(1, 65535); self._port_spin.setValue(8000)
+        self._mount_edit = QLineEdit(); self._mount_edit.setPlaceholderText("/live"); self._mount_edit.setText("/live")
+        self._username_edit = QLineEdit(); self._username_edit.setText("source")
+        self._password_edit = QLineEdit(); self._password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        for row, (label, field) in enumerate((
+            ("Tipo", self._server_type_combo), ("URL / Host", self._host_edit),
+            ("Puerto", self._port_spin), ("Mount point", self._mount_edit),
+            ("Usuario", self._username_edit), ("Contraseña", self._password_edit),
+        )):
+            server_layout.addWidget(QLabel(label), row, 0); server_layout.addWidget(field, row, 1)
+        columns.addWidget(server_group, 56)
+
+        right_column = QVBoxLayout(); right_column.setSpacing(12)
+        codec_group = QGroupBox("Codificación")
+        codec_group.setMinimumHeight(185)
+        codec_layout = QGridLayout(codec_group)
+        codec_layout.setContentsMargins(14, 18, 14, 14)
+        codec_layout.setHorizontalSpacing(12); codec_layout.setVerticalSpacing(8)
+        codec_layout.setColumnMinimumWidth(0, 96); codec_layout.setColumnStretch(1, 1)
+        self._codec_combo = QComboBox(); self._codec_combo.addItems(["Opus", "MP3"])
+        self._codec_combo.currentTextChanged.connect(self._on_codec_changed)
+        self._bitrate_spin = QSpinBox(); self._bitrate_spin.setRange(32, 320)
+        self._bitrate_spin.setValue(128); self._bitrate_spin.setSuffix(" kbps")
+        self._samplerate_combo = QComboBox(); self._samplerate_combo.addItems(["44100 Hz", "48000 Hz"])
+        self._channels_combo = QComboBox(); self._channels_combo.addItems(["Stereo (2)", "Mono (1)"])
+        for row, (label, field) in enumerate((
+            ("Codec", self._codec_combo), ("Bitrate", self._bitrate_spin),
+            ("Sample rate", self._samplerate_combo), ("Canales", self._channels_combo),
+        )):
+            codec_layout.addWidget(QLabel(label), row, 0); codec_layout.addWidget(field, row, 1)
+        right_column.addWidget(codec_group)
+
+        loopback_group = QGroupBox("Captura de audio")
+        loopback_group.setMinimumHeight(150)
+        loopback_layout = QGridLayout(loopback_group)
+        loopback_layout.setContentsMargins(14, 18, 14, 14)
+        loopback_layout.setHorizontalSpacing(10); loopback_layout.setVerticalSpacing(8)
+        self._loopback_combo = QComboBox()
+        loopback_layout.addWidget(QLabel("Dispositivo"), 0, 0)
+        loopback_layout.addWidget(self._loopback_combo, 0, 1)
+        btn_refresh = QPushButton("↻  Actualizar dispositivos"); btn_refresh.setFixedHeight(34)
+        btn_refresh.clicked.connect(self._refresh_loopback_devices)
+        loopback_layout.addWidget(btn_refresh, 1, 1)
+        bus_note = QLabel("Debe recibir la mezcla completa: cadena, pauta local y retorno.")
+        bus_note.setWordWrap(True); bus_note.setStyleSheet(f"font-size:10px;color:{t['text_dim']};")
+        loopback_layout.addWidget(bus_note, 2, 0, 1, 2)
+        right_column.addWidget(loopback_group); right_column.addStretch()
+        columns.addLayout(right_column, 44); layout.addLayout(columns, 1)
+
+        meta_group = QGroupBox("Metadatos del stream")
+        meta_layout = QGridLayout(meta_group)
+        meta_layout.setContentsMargins(14, 18, 14, 14)
+        meta_layout.setHorizontalSpacing(10); meta_layout.setVerticalSpacing(8)
+        self._name_edit = QLineEdit(); self._name_edit.setPlaceholderText("RadioSAT XP")
+        self._genre_edit = QLineEdit(); self._genre_edit.setPlaceholderText("Various")
+        self._desc_edit = QLineEdit(); self._desc_edit.setPlaceholderText("Descripción del stream…")
+        meta_layout.addWidget(QLabel("Nombre"), 0, 0); meta_layout.addWidget(self._name_edit, 0, 1)
+        meta_layout.addWidget(QLabel("Género"), 0, 2); meta_layout.addWidget(self._genre_edit, 0, 3)
+        meta_layout.addWidget(QLabel("Descripción"), 1, 0); meta_layout.addWidget(self._desc_edit, 1, 1, 1, 3)
+        layout.addWidget(meta_group)
+
+        btn_layout = QHBoxLayout()
+        hint = QLabel("La contraseña se guarda localmente en este equipo.")
+        hint.setStyleSheet(f"font-size:11px;color:{t['text_dim']};")
+        btn_layout.addWidget(hint); btn_layout.addStretch()
+        btn_cancel = QPushButton("Cancelar"); btn_cancel.setFixedHeight(38); btn_cancel.clicked.connect(self.reject)
+        btn_ok = QPushButton("Guardar configuración"); btn_ok.setDefault(True); btn_ok.setFixedHeight(38)
+        btn_ok.setStyleSheet(f"background:{t['accent']};color:white;font-weight:700;padding:0 18px;")
+        btn_ok.clicked.connect(self.accept)
+        btn_layout.addWidget(btn_cancel); btn_layout.addWidget(btn_ok); layout.addLayout(btn_layout)
+
+        self._refresh_loopback_devices()
+
+    def _on_codec_changed(self, codec):
+        if codec == "Opus":
+            self._bitrate_spin.setRange(32, 256)
+            self._bitrate_spin.setValue(128)
+        else:
+            self._bitrate_spin.setRange(64, 320)
+            self._bitrate_spin.setValue(192)
+
+    def _refresh_loopback_devices(self):
+        self._loopback_combo.clear()
+        if not SOUND_OK:
+            return
+        try:
+            devices = sd.query_devices()
+            for i, dev in enumerate(devices):
+                if dev['max_input_channels'] > 0:
+                    name = dev['name']
+                    if any(p in name.lower() for p in ['loopback', 'blackhole', 'soundflower', 'virtual']):
+                        self._loopback_combo.addItem(f"[Loopback] {name}", i)
+            if self._loopback_combo.count() == 0:
+                for i, dev in enumerate(devices):
+                    if dev['max_input_channels'] > 0:
+                        self._loopback_combo.addItem(dev['name'], i)
+        except Exception as e:
+            print(f"[EncoderDialog] Error listando dispositivos: {e}")
+
+    def _load_settings(self):
+        s = self._settings
+        if 'codec' in s:
+            idx = self._codec_combo.findText(s['codec'])
+            if idx >= 0:
+                self._codec_combo.setCurrentText(s['codec'])
+        if 'bitrate' in s:
+            self._bitrate_spin.setValue(s['bitrate'])
+        if 'samplerate' in s:
+            idx = self._samplerate_combo.findText(f"{s['samplerate']} Hz")
+            if idx >= 0:
+                self._samplerate_combo.setCurrentIndex(idx)
+        if 'channels' in s:
+            ch_text = "Stereo (2)" if s['channels'] == 2 else "Mono (1)"
+            idx = self._channels_combo.findText(ch_text)
+            if idx >= 0:
+                self._channels_combo.setCurrentIndex(idx)
+        if 'server_type' in s:
+            idx = self._server_type_combo.findText(s['server_type'].title())
+            if idx >= 0:
+                self._server_type_combo.setCurrentIndex(idx)
+        if 'host' in s:
+            self._host_edit.setText(s['host'])
+        if 'port' in s:
+            self._port_spin.setValue(s['port'])
+        if 'mount' in s:
+            self._mount_edit.setText(s['mount'])
+        if 'username' in s:
+            self._username_edit.setText(s['username'])
+        if 'password' in s:
+            self._password_edit.setText(s['password'])
+        if 'name' in s:
+            self._name_edit.setText(s['name'])
+        if 'genre' in s:
+            self._genre_edit.setText(s['genre'])
+        if 'description' in s:
+            self._desc_edit.setText(s['description'])
+        if 'loopback_device' in s:
+            idx = self._loopback_combo.findData(s['loopback_device'])
+            if idx >= 0:
+                self._loopback_combo.setCurrentIndex(idx)
+        if 'loopback_device_name' in s:
+            saved_name = s['loopback_device_name']
+            for idx in range(self._loopback_combo.count()):
+                if saved_name and saved_name in self._loopback_combo.itemText(idx):
+                    self._loopback_combo.setCurrentIndex(idx)
+                    break
+
+    def get_settings(self):
+        codec = self._codec_combo.currentText()
+        sr_text = self._samplerate_combo.currentText()
+        samplerate = int(sr_text.split()[0])
+        ch_text = self._channels_combo.currentText()
+        channels = 2 if "Stereo" in ch_text else 1
+        server_type = self._server_type_combo.currentText().lower()
+        loopback_dev = self._loopback_combo.currentData()
+
+        return {
+            'codec': codec,
+            'bitrate': self._bitrate_spin.value(),
+            'samplerate': samplerate,
+            'channels': channels,
+            'server_type': server_type,
+            'host': self._host_edit.text().strip(),
+            'port': self._port_spin.value(),
+            'mount': self._mount_edit.text().strip() or '/live',
+            'username': self._username_edit.text().strip() or 'source',
+            'password': self._password_edit.text(),
+            'name': self._name_edit.text().strip() or 'RadioSAT XP',
+            'genre': self._genre_edit.text().strip() or 'Various',
+            'description': self._desc_edit.text().strip(),
+            'loopback_device': loopback_dev,
+            'loopback_device_name': self._loopback_combo.currentText(),
+        }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  VENTANA PRINCIPAL
 # ══════════════════════════════════════════════════════════════════════════════
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Radio XP Automator  –  Suite de Automatización")
-        self.resize(1200, 810)
-        self.setMinimumSize(950, 680)
+        self.setWindowTitle("Radio XP Automator  —  Automatización de emisoras filiales")
+        self.resize(1680, 910)
+        self.setMinimumSize(1280, 720)
         app_icon_path = resource_path(os.path.join("assets", "icon.png"))
         if os.path.exists(app_icon_path):
             self.setWindowIcon(QIcon(app_icon_path))
@@ -1694,6 +2420,9 @@ class MainWindow(QMainWindow):
         self.passthrough = AudioPassthrough(self)
         self.remote_engine = RemoteStreamEngine(self)
         self.remote_dtmf   = StreamDTMFDetector(self)
+        self.loopback = AudioLoopbackCapture(self)
+        self.encoder = StreamEncoder(self)
+        self.stream_client = StreamClient(self)
         self._tts_worker: TTSWorker | None = None
         self._dtmf_activating = False
         self._remote_dtmf_active = False
@@ -1703,6 +2432,8 @@ class MainWindow(QMainWindow):
         self._remote_break_start_seq = ""
         self._remote_break_return_seq = ""
         self._main_signal_monitoring_for_pauta = False
+        self._encoder_on = False
+        self._encoder_settings: dict = {}
 
         # ── Variables de estado ────────────────────────────────────────────
         self._dtmf_log: list[str]  = []
@@ -1740,24 +2471,41 @@ class MainWindow(QMainWindow):
         self.remote_engine.metadata_update.connect(self._on_remote_metadata)
         self.remote_dtmf.action_detected.connect(self._remote_dtmf_action)
         self.remote_dtmf.level_update.connect(self._on_remote_level)
-        
+
+        # ── Señales del encoder ───────────────────────────────────────────
+        self.loopback.audio_data.connect(self._on_loopback_audio)
+        self.loopback.error_signal.connect(self._on_loopback_error)
+        self.encoder.encoded_data.connect(self._on_encoded_data)
+        self.encoder.error_signal.connect(self._on_encoder_error)
+        self.encoder.status_signal.connect(self._on_encoder_status)
+        self.stream_client.connected.connect(self._on_stream_connected)
+        self.stream_client.disconnected.connect(self._on_stream_disconnected)
+        self.stream_client.error_signal.connect(self._on_stream_error)
+        self.stream_client.status_signal.connect(self._on_stream_status)
+        self.stream_client.bytes_sent.connect(self._on_stream_bytes)
+
         print("[INIT] Señales DTMF conectadas correctamente")
         print("[INIT] Señales de botones conectadas correctamente")
 
         # ── UI ─────────────────────────────────────────────────────────────
+        self._ensure_status_contract()
         self._setup_menus()
         self._setup_ui()
         self._setup_statusbar()
 
         # ── Cargar datos persistidos ─────────────────────────────────────
         self._load_library_from_disk()
+        self._load_pautas_from_disk()
         self._load_remotes_from_disk()
         self._load_playlist_from_disk()
+        self._load_encoder_settings()
+        self._sync_dashboard()
 
         # ── Timer VU demo (cuando no hay audio real) ───────────────────────
         self._demo_vu = QTimer(self)
         self._demo_vu.timeout.connect(self._demo_vu_tick)
-        self._demo_vu.start(100)
+        # Los medidores sólo representan telemetría real. Se conserva el timer
+        # para compatibilidad, pero no se arranca una animación de demostración.
 
     def _on_metadata_update(self, meta_text: str):
         if meta_text:
@@ -1789,6 +2537,8 @@ class MainWindow(QMainWindow):
         m_cfg = mb.addMenu("&Configuración")
         m_cfg.addAction(xp_icon("AudioDevices.png"), "Dispositivos de Audio…",
                         self._config_audio)
+        m_cfg.addAction(xp_icon("Chip.png"), "Configurar Encoder…",
+                        self._config_encoder)
         m_cfg.addSeparator()
         self._theme_action = m_cfg.addAction("Tema Oscuro")
         self._theme_action.setCheckable(True)
@@ -1823,26 +2573,1034 @@ class MainWindow(QMainWindow):
         ta("MyMusic.png",   "Biblioteca",lambda: None,          "Biblioteca de medios")
 
     # ═══════════════════════════════════════════════════
-    #  UI PRINCIPAL
+    #  UI PRINCIPAL - REDISEÑO
     # ═══════════════════════════════════════════════════
     def _setup_ui(self):
+        if hasattr(self, "_dashboard_timer"):
+            self._dashboard_timer.stop()
+            self._dashboard_timer.deleteLater()
         central = QWidget()
         self.setCentralWidget(central)
-        grid = QGridLayout(central)
-        grid.setContentsMargins(10, 10, 10, 10)
-        grid.setSpacing(10)
+        main_layout = QVBoxLayout(central)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        grid.addWidget(self._build_consola(),     0, 0)
-        grid.addWidget(self._build_dtmf(),        0, 1)
-        grid.addWidget(self._build_reproductor(), 0, 2)
-        grid.addWidget(self._build_biblioteca(),  1, 0, 1, 2)
-        grid.addWidget(self._build_audio(),       1, 2)
+        # ── Header superior ──
+        header = self._build_header()
+        main_layout.addWidget(header)
 
-        grid.setRowStretch(0, 2)
-        grid.setRowStretch(1, 3)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnStretch(2, 1)
+        # ── Contenido principal con navegación lateral ──
+        content_wrapper = QWidget()
+        content_layout = QHBoxLayout(content_wrapper)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+
+        # Navegación lateral
+        nav = self._build_navigation()
+        content_layout.addWidget(nav)
+
+        # Área de páginas
+        self._content_area = QStackedWidget()
+        content_layout.addWidget(self._content_area, 1)
+
+        main_layout.addWidget(content_wrapper, 1)
+
+        # ── Barra de estado inferior ──
+        statusbar = self._build_statusbar_bottom()
+        main_layout.addWidget(statusbar)
+
+        # ── Crear páginas ──
+        self._page_emision = self._build_emision_page()
+        self._page_pautas = self._build_pautas_page()
+        self._page_biblioteca = self._build_biblioteca_page()
+        self._page_dtmf = self._build_dtmf_page()
+        self._page_registro = self._build_registro_page()
+        self._page_dispositivos = self._build_dispositivos_page()
+
+        self._content_area.addWidget(self._page_emision)
+        self._content_area.addWidget(self._page_pautas)
+        self._content_area.addWidget(self._page_biblioteca)
+        self._content_area.addWidget(self._page_dtmf)
+        self._content_area.addWidget(self._page_registro)
+        self._content_area.addWidget(self._page_dispositivos)
+        self._content_area.setCurrentIndex(0)
+
+    def _build_header(self) -> QWidget:
+        header = QWidget()
+        header.setFixedHeight(64)
+        header.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border-bottom: 1px solid {T('border')};
+            }}
+        """)
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(20, 0, 20, 0)
+        layout.setSpacing(20)
+
+        # Logo y título
+        logo_row = QHBoxLayout()
+        logo_row.setSpacing(12)
+        px_logo = xp_pixmap("AudioDevices.png", 36)
+        lbl_logo = QLabel()
+        if not px_logo.isNull():
+            lbl_logo.setPixmap(px_logo)
+        logo_row.addWidget(lbl_logo)
+
+        title_col = QVBoxLayout()
+        title_col.setSpacing(2)
+        lbl_title = QLabel("RADIO LOCAL")
+        lbl_title.setStyleSheet(f"""
+            font-size: 18pt;
+            font-weight: bold;
+            color: {T('text_primary')};
+        """)
+        title_col.addWidget(lbl_title)
+        lbl_subtitle = QLabel("Control de emisión")
+        lbl_subtitle.setStyleSheet(f"""
+            font-size: 9pt;
+            color: {T('text_secondary')};
+        """)
+        title_col.addWidget(lbl_subtitle)
+        logo_row.addLayout(title_col)
+        layout.addLayout(logo_row)
+
+        layout.addStretch()
+
+        # Botón AUTOMÁTICO
+        btn_auto = QPushButton("▶ AUTOMÁTICO")
+        btn_auto.setStyleSheet(f"""
+            QPushButton {{
+                background: {T('success')};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 10pt;
+            }}
+        """)
+        layout.addWidget(btn_auto)
+
+        # Indicador DTMF
+        dtmf_row = QHBoxLayout()
+        dtmf_row.setSpacing(8)
+        led_dtmf = LEDIndicator(QColor(57, 221, 105))
+        led_dtmf.set_on(True)
+        dtmf_row.addWidget(led_dtmf)
+        lbl_dtmf = QLabel("DTMF activo")
+        lbl_dtmf.setStyleSheet(f"color: {T('text_primary')}; font-size: 10pt;")
+        dtmf_row.addWidget(lbl_dtmf)
+        layout.addLayout(dtmf_row)
+
+        # Indicador Streaming
+        stream_row = QHBoxLayout()
+        stream_row.setSpacing(8)
+        led_stream = LEDIndicator(QColor(57, 221, 105))
+        led_stream.set_on(True)
+        stream_row.addWidget(led_stream)
+        lbl_stream = QLabel("Streaming conectado")
+        lbl_stream.setStyleSheet(f"color: {T('text_primary')}; font-size: 10pt;")
+        stream_row.addWidget(lbl_stream)
+        layout.addLayout(stream_row)
+
+        # Reloj
+        clock_col = QVBoxLayout()
+        clock_col.setSpacing(2)
+        clock_col.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self._header_clock = LiveClock()
+        self._header_clock.setFixedHeight(40)
+        clock_col.addWidget(self._header_clock)
+        self._header_date = QLabel()
+        self._header_date.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        self._header_date.setAlignment(Qt.AlignmentFlag.AlignRight)
+        clock_col.addWidget(self._header_date)
+        layout.addLayout(clock_col)
+
+        return header
+
+    def _build_navigation(self) -> QWidget:
+        nav = QWidget()
+        nav.setFixedWidth(200)
+        nav.setStyleSheet(f"""
+            QWidget {{
+                background: {T('bg_primary')};
+                border-right: 1px solid {T('border')};
+            }}
+        """)
+        layout = QVBoxLayout(nav)
+        layout.setContentsMargins(0, 20, 0, 20)
+        layout.setSpacing(4)
+
+        nav_items = [
+            ("Emisión", "AudioCD.png", 0),
+            ("Pautas locales", "Pauta.png", 1),
+            ("Biblioteca", "MyMusic.png", 2),
+            ("Reglas DTMF", "Chip.png", 3),
+            ("Registro", "Alert.png", 4),
+            ("Dispositivos", "AudioDevices.png", 5),
+        ]
+
+        self._nav_buttons = []
+        for text, icon, idx in nav_items:
+            btn = QPushButton()
+            px = xp_pixmap(icon, 20)
+            if not px.isNull():
+                btn.setIcon(QIcon(px))
+                btn.setIconSize(QSize(20, 20))
+            btn.setText(f"  {text}")
+            btn.setCheckable(True)
+            btn.setFixedHeight(44)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent;
+                    border: none;
+                    text-align: left;
+                    padding-left: 20px;
+                    font-size: 11pt;
+                    color: {T('text_secondary')};
+                }}
+                QPushButton:hover {{
+                    background: {T('bg_hover')};
+                    color: {T('text_primary')};
+                }}
+                QPushButton:checked {{
+                    background: {T('accent')};
+                    color: white;
+                    font-weight: bold;
+                }}
+            """)
+            btn.clicked.connect(lambda checked, i=idx: self._navigate_to(i))
+            layout.addWidget(btn)
+            self._nav_buttons.append(btn)
+
+        if self._nav_buttons:
+            self._nav_buttons[0].setChecked(True)
+
+        layout.addStretch()
+        return nav
+
+    def _navigate_to(self, index: int):
+        for i, btn in enumerate(self._nav_buttons):
+            btn.setChecked(i == index)
+        self._content_area.setCurrentIndex(index)
+
+    def _build_emision_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
+        # ── Fila superior: Banner AL AIRE + Reloj próximo evento ──
+        top_row = QHBoxLayout()
+        top_row.setSpacing(16)
+
+        # Banner AL AIRE
+        banner = QWidget()
+        banner.setStyleSheet(f"""
+            QWidget {{
+                background: {T('success')};
+                border-radius: 6px;
+            }}
+        """)
+        banner_layout = QHBoxLayout(banner)
+        banner_layout.setContentsMargins(20, 16, 20, 16)
+        banner_layout.setSpacing(16)
+
+        px_antenna = xp_pixmap("AudioDevices.png", 48)
+        lbl_antenna = QLabel()
+        if not px_antenna.isNull():
+            lbl_antenna.setPixmap(px_antenna)
+        banner_layout.addWidget(lbl_antenna)
+
+        banner_info = QVBoxLayout()
+        banner_info.setSpacing(4)
+        lbl_banner_title = QLabel("AL AIRE · SEÑAL DE CADENA")
+        lbl_banner_title.setStyleSheet("""
+            font-size: 16pt;
+            font-weight: bold;
+            color: white;
+        """)
+        banner_info.addWidget(lbl_banner_title)
+        lbl_banner_source = QLabel("Fuente: Cadena principal")
+        lbl_banner_source.setStyleSheet("""
+            font-size: 10pt;
+            color: rgba(255,255,255,0.9);
+        """)
+        banner_info.addWidget(lbl_banner_source)
+        lbl_banner_desc = QLabel("La señal de cadena se transmite a la audiencia")
+        lbl_banner_desc.setStyleSheet("""
+            font-size: 9pt;
+            color: rgba(255,255,255,0.8);
+        """)
+        banner_info.addWidget(lbl_banner_desc)
+        banner_layout.addLayout(banner_info, 1)
+
+        # Medidores VU en el banner
+        vu_widget = QWidget()
+        vu_widget.setFixedWidth(280)
+        vu_layout = QVBoxLayout(vu_widget)
+        vu_layout.setContentsMargins(0, 0, 0, 0)
+        vu_layout.setSpacing(6)
+
+        self._vu_bars = []
+        for label in ["L", "R"]:
+            vu_row = QHBoxLayout()
+            vu_row.setSpacing(8)
+            lbl = QLabel(label)
+            lbl.setStyleSheet("color: white; font-size: 10pt; font-weight: bold;")
+            lbl.setFixedWidth(12)
+            vu_row.addWidget(lbl)
+            vu_bar = VUBar()
+            vu_row.addWidget(vu_bar, 1)
+            vu_layout.addLayout(vu_row)
+            self._vu_bars.append(vu_bar)
+
+        # Escala dB
+        db_row = QHBoxLayout()
+        db_row.setSpacing(0)
+        for db in ["-60", "-40", "-20", "-10", "-6", "-3", "0 dB"]:
+            lbl = QLabel(db)
+            lbl.setStyleSheet("color: rgba(255,255,255,0.7); font-size: 7pt;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            db_row.addWidget(lbl, 1)
+        vu_layout.addLayout(db_row)
+        banner_layout.addWidget(vu_widget)
+
+        top_row.addWidget(banner, 68)
+
+        # Panel próximo evento
+        next_panel = QWidget()
+        next_panel.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border: 1px solid {T('border')};
+                border-radius: 6px;
+            }}
+        """)
+        next_layout = QHBoxLayout(next_panel)
+        next_layout.setContentsMargins(16, 12, 16, 12)
+        next_layout.setSpacing(16)
+
+        px_clock = xp_pixmap("Alert.png", 32)
+        lbl_clock_icon = QLabel()
+        if not px_clock.isNull():
+            lbl_clock_icon.setPixmap(px_clock)
+        next_layout.addWidget(lbl_clock_icon)
+
+        next_info = QVBoxLayout()
+        next_info.setSpacing(4)
+        lbl_next_title = QLabel("Próxima desconexión")
+        lbl_next_title.setStyleSheet(f"color: {T('warning')}; font-size: 10pt;")
+        next_info.addWidget(lbl_next_title)
+        self._lbl_next_time = QLabel("17:30:00")
+        self._lbl_next_time.setStyleSheet(f"""
+            font-size: 22pt;
+            font-weight: bold;
+            color: {T('warning')};
+        """)
+        next_info.addWidget(self._lbl_next_time)
+        next_layout.addLayout(next_info, 1)
+
+        next_countdown = QVBoxLayout()
+        next_countdown.setSpacing(4)
+        next_countdown.setAlignment(Qt.AlignmentFlag.AlignRight)
+        lbl_en = QLabel("En")
+        lbl_en.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        lbl_en.setAlignment(Qt.AlignmentFlag.AlignRight)
+        next_countdown.addWidget(lbl_en)
+        self._lbl_countdown = QLabel("00:32")
+        self._lbl_countdown.setStyleSheet(f"""
+            font-size: 22pt;
+            font-weight: bold;
+            color: {T('warning')};
+        """)
+        self._lbl_countdown.setAlignment(Qt.AlignmentFlag.AlignRight)
+        next_countdown.addWidget(self._lbl_countdown)
+        next_layout.addLayout(next_countdown)
+
+        top_row.addWidget(next_panel, 32)
+        layout.addLayout(top_row)
+
+        # ── Contenido principal dos columnas ──
+        main_content = QHBoxLayout()
+        main_content.setSpacing(16)
+
+        # Columna izquierda (68%)
+        left_col = QVBoxLayout()
+        left_col.setSpacing(16)
+
+        # Pauta local
+        pauta_panel = self._build_pauta_panel()
+        left_col.addWidget(pauta_panel)
+
+        # Biblioteca
+        bib_panel = self._build_biblioteca_inline()
+        left_col.addWidget(bib_panel)
+
+        left_col.setStretch(0, 1)
+        left_col.setStretch(1, 1)
+        main_content.addLayout(left_col, 68)
+
+        # Columna derecha (32%)
+        right_col = QVBoxLayout()
+        right_col.setSpacing(16)
+
+        # Control DTMF
+        dtmf_panel = self._build_dtmf_panel()
+        right_col.addWidget(dtmf_panel)
+
+        # Salida y respaldo
+        output_panel = self._build_output_panel()
+        right_col.addWidget(output_panel)
+
+        # Registro
+        log_panel = self._build_log_panel()
+        right_col.addWidget(log_panel)
+
+        right_col.setStretch(0, 0)
+        right_col.setStretch(1, 0)
+        right_col.setStretch(2, 1)
+        main_content.addLayout(right_col, 32)
+
+        layout.addLayout(main_content, 1)
+        return page
+
+    def _build_pauta_panel(self) -> QWidget:
+        panel = QWidget()
+        panel.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border: 1px solid {T('border')};
+                border-radius: 6px;
+            }}
+        """)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # Header
+        header = QHBoxLayout()
+        px_pauta = xp_pixmap("Pauta.png", 24)
+        lbl_icon = QLabel()
+        if not px_pauta.isNull():
+            lbl_icon.setPixmap(px_pauta)
+        header.addWidget(lbl_icon)
+
+        pauta_info = QVBoxLayout()
+        pauta_info.setSpacing(2)
+        lbl_title = QLabel("Pauta local preparada")
+        lbl_title.setStyleSheet(f"""
+            font-size: 12pt;
+            font-weight: bold;
+            color: {T('accent_text')};
+        """)
+        pauta_info.addWidget(lbl_title)
+        lbl_subtitle = QLabel("Tanda 17:30 · 4 audios · Total 02:00")
+        lbl_subtitle.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        pauta_info.addWidget(lbl_subtitle)
+        header.addLayout(pauta_info, 1)
+        layout.addLayout(header)
+
+        # Tabla de pauta
+        self._pauta_table = QTableWidget()
+        self._pauta_table.setColumnCount(5)
+        self._pauta_table.setHorizontalHeaderLabels(["Orden", "Audio / Cliente", "Duración", "Inicio", "Estado"])
+        self._pauta_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._pauta_table.setAlternatingRowColors(True)
+        self._pauta_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._pauta_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._pauta_table.verticalHeader().setVisible(False)
+        layout.addWidget(self._pauta_table)
+
+        # Línea de tiempo
+        timeline_label = QLabel("Línea de tiempo de la pauta (02:00)")
+        timeline_label.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        layout.addWidget(timeline_label)
+
+        timeline = QWidget()
+        timeline.setFixedHeight(24)
+        timeline.setStyleSheet(f"background: {T('bg_input')}; border-radius: 4px;")
+        tl_layout = QHBoxLayout(timeline)
+        tl_layout.setContentsMargins(0, 0, 0, 0)
+        tl_layout.setSpacing(2)
+
+        colors = [T('accent'), T('success'), T('warning'), "#9B59B6"]
+        durations = ["00:10", "00:30", "00:40", "00:40"]
+        for color, dur in zip(colors, durations):
+            seg = QWidget()
+            seg.setStyleSheet(f"background: {color}; border-radius: 2px;")
+            tl_layout.addWidget(seg, int(dur.split(':')[1]))
+        layout.addWidget(timeline)
+
+        # Labels de timeline
+        tl_labels = QHBoxLayout()
+        tl_labels.setSpacing(0)
+        labels = ["Identificación emisora", "Ferretería del Puerto", "Mercado Central", "Promoción local"]
+        for lbl_text in labels:
+            lbl = QLabel(lbl_text)
+            lbl.setStyleSheet(f"color: {T('text_secondary')}; font-size: 8pt;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            tl_labels.addWidget(lbl, 1)
+        layout.addLayout(tl_labels)
+
+        # Info DTMF
+        lbl_dtmf_info = QLabel("Inicio por DTMF · Retorno automático al finalizar")
+        lbl_dtmf_info.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt; margin-top: 8px;")
+        layout.addWidget(lbl_dtmf_info)
+
+        # Botones de acción
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_emitir = QPushButton("▶ Emitir pauta local")
+        btn_emitir.setStyleSheet(f"""
+            QPushButton {{
+                background: {T('success')};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 12px 24px;
+                font-weight: bold;
+                font-size: 11pt;
+            }}
+            QPushButton:hover {{
+                background: #2BBF55;
+            }}
+        """)
+        btn_emitir.clicked.connect(self._toggle_pauta)
+        btn_row.addWidget(btn_emitir)
+
+        btn_cadena = QPushButton("⏹ Volver a cadena")
+        btn_cadena.setStyleSheet(f"""
+            QPushButton {{
+                background: {T('surface_raised')};
+                color: {T('text_primary')};
+                border: 1px solid {T('border')};
+                border-radius: 4px;
+                padding: 12px 24px;
+                font-size: 10pt;
+            }}
+        """)
+        btn_cadena.clicked.connect(self._toggle_signal)
+        btn_row.addWidget(btn_cadena)
+
+        btn_row.addStretch()
+
+        btn_preescuchar = QPushButton("🎧 Preescuchar")
+        btn_preescuchar.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                color: {T('text_secondary')};
+                border: 1px solid {T('border')};
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 9pt;
+            }}
+        """)
+        btn_preescuchar.clicked.connect(self._toggle_mic)
+        btn_row.addWidget(btn_preescuchar)
+
+        layout.addLayout(btn_row)
+        return panel
+
+    def _build_biblioteca_inline(self) -> QWidget:
+        panel = QWidget()
+        panel.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border: 1px solid {T('border')};
+                border-radius: 6px;
+            }}
+        """)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # Header
+        header = QHBoxLayout()
+        px_bib = xp_pixmap("MyMusic.png", 24)
+        lbl_icon = QLabel()
+        if not px_bib.isNull():
+            lbl_icon.setPixmap(px_bib)
+        header.addWidget(lbl_icon)
+
+        lbl_title = QLabel("Biblioteca de medios")
+        lbl_title.setStyleSheet(f"""
+            font-size: 12pt;
+            font-weight: bold;
+            color: {T('accent_text')};
+        """)
+        header.addWidget(lbl_title)
+        header.addStretch()
+        layout.addLayout(header)
+
+        # Búsqueda y filtros
+        search_row = QHBoxLayout()
+        search_row.setSpacing(8)
+
+        search_edit = QLineEdit()
+        search_edit.setPlaceholderText("Buscar audio, cliente o campaña...")
+        search_edit.setStyleSheet(f"""
+            QLineEdit {{
+                background: {T('bg_input')};
+                color: {T('text_primary')};
+                border: 1px solid {T('border')};
+                border-radius: 4px;
+                padding: 6px 12px;
+            }}
+        """)
+        search_row.addWidget(search_edit, 1)
+
+        filter_combo = QComboBox()
+        filter_combo.addItems(["Todos", "Comerciales", "Identificaciones", "Música"])
+        search_row.addWidget(filter_combo)
+
+        btn_import = QPushButton("↑ Importar audios")
+        btn_import.setStyleSheet(f"""
+            QPushButton {{
+                background: {T('accent')};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 16px;
+                font-size: 9pt;
+            }}
+        """)
+        btn_import.clicked.connect(self._add_audio_files)
+        search_row.addWidget(btn_import)
+
+        layout.addLayout(search_row)
+
+        # Tabla de biblioteca
+        self._table_library = QTableWidget()
+        self._table_library.setColumnCount(5)
+        self._table_library.setHorizontalHeaderLabels(["Nombre del archivo", "Duración", "Cliente / Campaña", "Categoría", "Acción"])
+        self._table_library.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._table_library.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self._table_library.setAlternatingRowColors(True)
+        self._table_library.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._table_library.verticalHeader().setVisible(False)
+        layout.addWidget(self._table_library, 1)
+
+        return panel
+
+    def _build_dtmf_panel(self) -> QWidget:
+        panel = QWidget()
+        panel.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border: 1px solid {T('border')};
+                border-radius: 6px;
+            }}
+        """)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # Header
+        header = QHBoxLayout()
+        px_dtmf = xp_pixmap("Chip.png", 20)
+        lbl_icon = QLabel()
+        if not px_dtmf.isNull():
+            lbl_icon.setPixmap(px_dtmf)
+        header.addWidget(lbl_icon)
+
+        lbl_title = QLabel("Control DTMF")
+        lbl_title.setStyleSheet(f"""
+            font-size: 11pt;
+            font-weight: bold;
+            color: {T('accent_text')};
+        """)
+        header.addWidget(lbl_title)
+        layout.addLayout(header)
+
+        # Estado
+        status_row = QHBoxLayout()
+        led_dtmf = LEDIndicator(QColor(57, 221, 105))
+        led_dtmf.set_on(True)
+        status_row.addWidget(led_dtmf)
+        self._lbl_dtmf_status = QLabel("Escuchando entrada de cadena")
+        self._lbl_dtmf_status.setStyleSheet(f"""
+            color: {T('success')};
+            font-size: 10pt;
+            font-weight: bold;
+        """)
+        status_row.addWidget(self._lbl_dtmf_status, 1)
+        layout.addLayout(status_row)
+
+        # Último código
+        lbl_last = QLabel("Último código:")
+        lbl_last.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        layout.addWidget(lbl_last)
+
+        self._lbl_last_code = QLabel("*90# · 17:00:00")
+        self._lbl_last_code.setStyleSheet(f"""
+            background: {T('bg_input')};
+            color: {T('text_primary')};
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 10pt;
+        """)
+        layout.addWidget(self._lbl_last_code)
+
+        # Tabla de códigos
+        code_table = QTableWidget()
+        code_table.setColumnCount(2)
+        code_table.setHorizontalHeaderLabels(["Código DTMF", "Acción"])
+        code_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        code_table.setRowCount(2)
+        code_table.setItem(0, 0, QTableWidgetItem("*90#"))
+        code_table.setItem(0, 1, QTableWidgetItem("Iniciar pauta local"))
+        code_table.setItem(1, 0, QTableWidgetItem("*91#"))
+        code_table.setItem(1, 1, QTableWidgetItem("Volver a cadena"))
+        code_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        code_table.verticalHeader().setVisible(False)
+        layout.addWidget(code_table)
+
+        # Nota informativa
+        info_row = QHBoxLayout()
+        px_info = xp_pixmap("Alert.png", 16)
+        lbl_info_icon = QLabel()
+        if not px_info.isNull():
+            lbl_info_icon.setPixmap(px_info)
+        info_row.addWidget(lbl_info_icon)
+        lbl_info = QLabel("La cadena continúa al aire hasta recibir el tono de corte.")
+        lbl_info.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        info_row.addWidget(lbl_info, 1)
+        layout.addLayout(info_row)
+
+        return panel
+
+    def _build_output_panel(self) -> QWidget:
+        panel = QWidget()
+        panel.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border: 1px solid {T('border')};
+                border-radius: 6px;
+            }}
+        """)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # Header
+        header = QHBoxLayout()
+        px_output = xp_pixmap("AudioDevices.png", 20)
+        lbl_icon = QLabel()
+        if not px_output.isNull():
+            lbl_icon.setPixmap(px_output)
+        header.addWidget(lbl_icon)
+
+        lbl_title = QLabel("Salida y respaldo")
+        lbl_title.setStyleSheet(f"""
+            font-size: 11pt;
+            font-weight: bold;
+            color: {T('accent_text')};
+        """)
+        header.addWidget(lbl_title)
+        layout.addLayout(header)
+
+        # Programa (salida al aire)
+        lbl_program = QLabel("Programa (salida al aire)")
+        lbl_program.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        layout.addWidget(lbl_program)
+
+        # Medidores pequeños
+        vu_widget = QWidget()
+        vu_widget.setFixedHeight(50)
+        vu_layout = QVBoxLayout(vu_widget)
+        vu_layout.setContentsMargins(0, 0, 0, 0)
+        vu_layout.setSpacing(4)
+
+        self._vu_output = []
+        for label in ["L", "R"]:
+            vu_row = QHBoxLayout()
+            lbl = QLabel(label)
+            lbl.setStyleSheet(f"color: {T('text_secondary')}; font-size: 8pt;")
+            lbl.setFixedWidth(10)
+            vu_row.addWidget(lbl)
+            vu_bar = VUBar()
+            vu_row.addWidget(vu_bar, 1)
+            vu_layout.addLayout(vu_row)
+            self._vu_output.append(vu_bar)
+
+        db_row = QHBoxLayout()
+        for db in ["-60", "-40", "-20", "-10", "-6", "-3", "0 dB"]:
+            lbl = QLabel(db)
+            lbl.setStyleSheet(f"color: {T('text_dim')}; font-size: 6pt;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            db_row.addWidget(lbl, 1)
+        vu_layout.addLayout(db_row)
+        layout.addWidget(vu_widget)
+
+        # Encoder
+        encoder_row = QHBoxLayout()
+        led_encoder = LEDIndicator(QColor(57, 221, 105))
+        led_encoder.set_on(True)
+        encoder_row.addWidget(led_encoder)
+
+        encoder_info = QVBoxLayout()
+        encoder_info.setSpacing(2)
+        lbl_encoder_title = QLabel("Encoder")
+        lbl_encoder_title.setStyleSheet(f"color: {T('text_primary')}; font-size: 10pt; font-weight: bold;")
+        encoder_info.addWidget(lbl_encoder_title)
+        self._lbl_encoder_status = QLabel("Conectado")
+        self._lbl_encoder_status.setStyleSheet(f"color: {T('success')}; font-size: 9pt;")
+        encoder_info.addWidget(self._lbl_encoder_status)
+        encoder_row.addLayout(encoder_info, 1)
+
+        self._lbl_encoder_codec = QLabel("MP3 · 128 kbps")
+        self._lbl_encoder_codec.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        encoder_row.addWidget(self._lbl_encoder_codec)
+        layout.addLayout(encoder_row)
+
+        # Audio de respaldo
+        backup_row = QHBoxLayout()
+        led_backup = LEDIndicator(QColor(57, 221, 105))
+        led_backup.set_on(True)
+        backup_row.addWidget(led_backup)
+
+        backup_info = QVBoxLayout()
+        backup_info.setSpacing(2)
+        lbl_backup_title = QLabel("Audio de respaldo")
+        lbl_backup_title.setStyleSheet(f"color: {T('text_primary')}; font-size: 10pt;")
+        backup_info.addWidget(lbl_backup_title)
+        lbl_backup_status = QLabel("Listo · respaldo_emisora.mp3")
+        lbl_backup_status.setStyleSheet(f"color: {T('success')}; font-size: 9pt;")
+        backup_info.addWidget(lbl_backup_status)
+        backup_row.addLayout(backup_info, 1)
+        layout.addLayout(backup_row)
+
+        # Botón configurar
+        btn_config = QPushButton("⚙ Configurar audio")
+        btn_config.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                color: {T('text_secondary')};
+                border: 1px solid {T('border')};
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 9pt;
+            }}
+        """)
+        btn_config.clicked.connect(self._config_encoder)
+        layout.addWidget(btn_config)
+
+        return panel
+
+    def _build_log_panel(self) -> QWidget:
+        panel = QWidget()
+        panel.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border: 1px solid {T('border')};
+                border-radius: 6px;
+            }}
+        """)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        # Header
+        header = QHBoxLayout()
+        px_log = xp_pixmap("Alert.png", 20)
+        lbl_icon = QLabel()
+        if not px_log.isNull():
+            lbl_icon.setPixmap(px_log)
+        header.addWidget(lbl_icon)
+
+        lbl_title = QLabel("Registro de emisión")
+        lbl_title.setStyleSheet(f"""
+            font-size: 11pt;
+            font-weight: bold;
+            color: {T('accent_text')};
+        """)
+        header.addWidget(lbl_title)
+        header.addStretch()
+
+        btn_clear = QPushButton(" Limpiar")
+        btn_clear.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                color: {T('text_secondary')};
+                border: none;
+                font-size: 9pt;
+            }}
+        """)
+        btn_clear.clicked.connect(self._clear_log_view)
+        header.addWidget(btn_clear)
+        layout.addLayout(header)
+
+        # Tabla de registro
+        self._log_table = QTableWidget()
+        self._log_table.setColumnCount(2)
+        self._log_table.setHorizontalHeaderLabels(["Hora", "Evento"])
+        self._log_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._log_table.setAlternatingRowColors(True)
+        self._log_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._log_table.verticalHeader().setVisible(False)
+        layout.addWidget(self._log_table, 1)
+
+        return panel
+
+    def _build_statusbar_bottom(self) -> QWidget:
+        bar = QWidget()
+        bar.setFixedHeight(32)
+        bar.setStyleSheet(f"""
+            QWidget {{
+                background: {T('surface')};
+                border-top: 1px solid {T('border')};
+            }}
+        """)
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(16, 0, 16, 0)
+        layout.setSpacing(16)
+
+        items = [
+            ("Entrada: USB Audio 1/2", T('success')),
+            ("Salida: Programa 1/2", T('success')),
+            ("Monitoreo: 3/4", T('text_secondary')),
+        ]
+
+        for text, color in items:
+            lbl = QLabel(text)
+            lbl.setStyleSheet(f"color: {color}; font-size: 9pt;")
+            layout.addWidget(lbl)
+
+        layout.addStretch()
+
+        lbl_backup = QLabel("Respaldo listo")
+        lbl_backup.setStyleSheet(f"color: {T('success')}; font-size: 9pt;")
+        layout.addWidget(lbl_backup)
+
+        lbl_version = QLabel("Radio XP Automator v1.0.0")
+        lbl_version.setStyleSheet(f"color: {T('text_dim')}; font-size: 9pt;")
+        layout.addWidget(lbl_version)
+
+        return bar
+
+    def _build_pautas_page(self) -> QWidget:
+        return self._build_emision_page()
+
+    def _build_biblioteca_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        bib_panel = self._build_biblioteca_inline()
+        layout.addWidget(bib_panel, 1)
+        return page
+
+    def _build_dtmf_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        dtmf_panel = self._build_dtmf_panel()
+        layout.addWidget(dtmf_panel)
+        layout.addStretch()
+        return page
+
+    def _build_registro_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        log_panel = self._build_log_panel()
+        layout.addWidget(log_panel, 1)
+        return page
+
+    def _build_dispositivos_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+
+        lbl_title = QLabel("DISPOSITIVOS DE AUDIO")
+        lbl_title.setStyleSheet(f"""
+            font-size: 14pt;
+            font-weight: bold;
+            color: {T('text_primary')};
+        """)
+        layout.addWidget(lbl_title)
+
+        # Dispositivos de entrada
+        grp_input = QGroupBox("Dispositivos de entrada")
+        grp_input.setStyleSheet(f"""
+            QGroupBox {{
+                border: 1px solid {T('border')};
+                border-radius: 4px;
+                margin-top: 8px;
+                padding-top: 16px;
+                font-weight: bold;
+                color: {T('text_primary')};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 4px;
+            }}
+        """)
+        input_layout = QGridLayout(grp_input)
+
+        input_layout.addWidget(QLabel("Micrófono:"), 0, 0)
+        self._mic_dev_combo = QComboBox()
+        input_layout.addWidget(self._mic_dev_combo, 0, 1)
+
+        input_layout.addWidget(QLabel("Entrada DTMF:"), 1, 0)
+        self._dtmf_dev_combo = QComboBox()
+        input_layout.addWidget(self._dtmf_dev_combo, 1, 1)
+
+        layout.addWidget(grp_input)
+
+        # Dispositivos de salida
+        grp_output = QGroupBox("Dispositivos de salida")
+        grp_output.setStyleSheet(f"""
+            QGroupBox {{
+                border: 1px solid {T('border')};
+                border-radius: 4px;
+                margin-top: 8px;
+                padding-top: 16px;
+                font-weight: bold;
+                color: {T('text_primary')};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 4px;
+            }}
+        """)
+        output_layout = QGridLayout(grp_output)
+
+        output_layout.addWidget(QLabel("Reproductor:"), 0, 0)
+        self._out_dev_combo = QComboBox()
+        self._out_dev_combo.currentIndexChanged.connect(self._on_out_dev_changed)
+        output_layout.addWidget(self._out_dev_combo, 0, 1)
+
+        output_layout.addWidget(QLabel("Señal principal:"), 1, 0)
+        self._sd_out_dev_combo = QComboBox()
+        output_layout.addWidget(self._sd_out_dev_combo, 1, 1)
+
+        output_layout.addWidget(QLabel("Stream remoto:"), 2, 0)
+        self._remote_out_dev_combo = QComboBox()
+        self._remote_out_dev_combo.currentIndexChanged.connect(self._on_remote_out_dev_changed)
+        output_layout.addWidget(self._remote_out_dev_combo, 2, 1)
+
+        layout.addWidget(grp_output)
+
+        # Botón actualizar
+        btn_refresh = QPushButton("Actualizar dispositivos")
+        btn_refresh.clicked.connect(self._refresh_devices)
+        layout.addWidget(btn_refresh)
+
+        layout.addStretch()
+        return page
+
+    def _clear_log_view(self):
+        if hasattr(self, '_log_table'):
+            self._log_table.setRowCount(0)
 
     # ─────────────────────── PANEL: CONSOLA ────────────────────────────────
     def _build_consola(self) -> XPPanel:
@@ -1855,18 +3613,20 @@ class MainWindow(QMainWindow):
         top.setSpacing(8)
 
         self._clock = LiveClock()
-        self._clock.setFixedHeight(45)
+        self._clock.setFixedHeight(58)
         top.addWidget(self._clock, 1)
 
         self._led_onair  = LEDIndicator(QColor(255, 30,  30))
         self._led_signal = LEDIndicator(QColor(0,  210,  0))
         self._led_dtmf   = LEDIndicator(QColor(255, 180,  0))
         self._led_remote = LEDIndicator(QColor(100, 180, 255))
+        self._led_encoder = LEDIndicator(QColor(255, 100, 200))
 
         led_wrap = QHBoxLayout()
         led_wrap.setSpacing(6)
         for led, txt in [(self._led_onair,"ON AIR"),(self._led_signal,"SEÑAL"),
-                         (self._led_dtmf,"DTMF"),(self._led_remote,"REMOTO")]:
+                         (self._led_dtmf,"DTMF"),(self._led_remote,"REMOTO"),
+                         (self._led_encoder,"STREAM")]:
             c = QVBoxLayout()
             c.setSpacing(1)
             c.setAlignment(Qt.AlignmentFlag.AlignHCenter)
@@ -1879,7 +3639,7 @@ class MainWindow(QMainWindow):
         top.addLayout(led_wrap)
         lay.addLayout(top)
 
-        # ── Fila 2: Botones principales en grid 2x2 ──
+        # ── Fila 2: Botones principales en grid 2x3 ──
         btn_grid = QGridLayout()
         btn_grid.setSpacing(4)
 
@@ -1904,9 +3664,12 @@ class MainWindow(QMainWindow):
             "Activa/desactiva la detección de tonos DTMF", self._toggle_dtmf)
         self.btn_remote = make_btn("SEÑAL REMOTA", "RemoteDesktop.png",
             "Reproduce un stream remoto y detecta DTMF", self._toggle_remote)
+        self.btn_encoder = make_btn("ENCODER", "Record.png",
+            "Inicia/detiene la transmisión del encoder (streaming)", self._toggle_encoder)
 
         btn_grid.addWidget(self.btn_signal,    0, 0)
         btn_grid.addWidget(self.btn_pauta,     0, 1)
+        btn_grid.addWidget(self.btn_encoder,   0, 2)
         btn_grid.addWidget(self.btn_dtmf_main, 1, 0)
         btn_grid.addWidget(self.btn_remote,    1, 1)
         lay.addLayout(btn_grid)
@@ -1970,7 +3733,7 @@ class MainWindow(QMainWindow):
         btn_clr = QPushButton("  Limpiar")
         pxcl = xp_pixmap("Delete.png", 12)
         if not pxcl.isNull(): btn_clr.setIcon(QIcon(pxcl))
-        btn_clr.setFixedSize(70, 22)
+        btn_clr.setFixedSize(96, 30)
         btn_clr.setIconSize(QSize(12, 12))
         btn_clr.clicked.connect(lambda: (self._dtmf_log.clear(), self._dtmf_display.clear()))
         bot.addWidget(btn_clr)
@@ -2188,7 +3951,7 @@ class MainWindow(QMainWindow):
         lay.addLayout(transport)
 
         # Tabla playlist
-        self._table_playlist = QTableWidget(0, 5)
+        self._table_playlist = AudioDropTable(0, 5)
         self._table_playlist.setHorizontalHeaderLabels(["#", "Artista", "Título", "Duración", "Estado"])
         self._table_playlist.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self._table_playlist.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -2198,7 +3961,8 @@ class MainWindow(QMainWindow):
         self._table_playlist.verticalHeader().setVisible(False)
         self._table_playlist.verticalHeader().setDefaultSectionSize(28)
         self._table_playlist.doubleClicked.connect(self._playlist_double_click)
-        self._table_playlist.setToolTip("Doble clic para reproducir la canción seleccionada")
+        self._table_playlist.filesDropped.connect(self._add_paths_to_playlist)
+        self._table_playlist.setToolTip("Arrastra audios desde la biblioteca o Finder. Doble clic para reproducir.")
         lay.addWidget(self._table_playlist)
         return p
 
@@ -2307,148 +4071,138 @@ class MainWindow(QMainWindow):
 
     # ─────────────────────── PANEL: AUDIO ──────────────────────────────────
     def _build_audio(self) -> XPPanel:
-        p  = XPPanel("Control de Audio", "AudioDevices.png")
+        p  = XPPanel("Encoder / Streaming", "Record.png")
         lay = p.content_layout
 
-        # VU Meters
-        vu_frame = QFrame()
-        vu_frame.setObjectName("vuFrame")
-        vu_frame.setStyleSheet(f"#vuFrame {{ background:{T('vu_bg')}; border:1px solid {T('border')}; border-radius:4px; }}")
-        vu_frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        vu_frame.setFixedHeight(80)
-        vu_outer = QVBoxLayout(vu_frame)
-        vu_outer.setSpacing(1)
-        vu_outer.setContentsMargins(6,4,6,4)
-
+        # Lista vacía para compatibilidad con código existente
         self._vu_bars: list[VUBar] = []
-        
-        # Barra VU L (arriba)
-        vu_l_row = QHBoxLayout()
-        lbl_l = QLabel("L")
-        lbl_l.setStyleSheet(f"color:{T('vu_label')}; font-size:7pt; font-weight:bold;")
-        lbl_l.setFixedWidth(10)
-        vu_l_row.addWidget(lbl_l)
-        main_vu_l = VUBar()
-        vu_l_row.addWidget(main_vu_l)
-        vu_outer.addLayout(vu_l_row)
-        self._vu_bars.append(main_vu_l)
-        
-        # Barra VU R (abajo)
-        vu_r_row = QHBoxLayout()
-        lbl_r = QLabel("R")
-        lbl_r.setStyleSheet(f"color:{T('vu_label')}; font-size:7pt; font-weight:bold;")
-        lbl_r.setFixedWidth(10)
-        vu_r_row.addWidget(lbl_r)
-        main_vu_r = VUBar()
-        vu_r_row.addWidget(main_vu_r)
-        vu_outer.addLayout(vu_r_row)
-        self._vu_bars.append(main_vu_r)
-        
-        # Crear 2 barras ocultas para no romper el resto del código
-        for _ in range(2):
-            vb = VUBar()
-            vb.hide()
-            self._vu_bars.append(vb)
 
-        # dB scale integrada debajo de la barra
-        dbl = QHBoxLayout()
-        dbl.setSpacing(0)
-        dbl.setContentsMargins(2, 0, 2, 0)
-        
-        labels = ["−∞", "−18", "−12", "−6", "0"]
-        for i, dB in enumerate(labels):
-            l = QLabel(dB)
-            if i == 0:
-                l.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            elif i == len(labels) - 1:
-                l.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop)
-            else:
-                l.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-                
-            l.setStyleSheet(f"color:{T('vu_label')}; font-size:7pt; background:transparent;")
-            dbl.addWidget(l, 1)
-        vu_outer.addLayout(dbl)
-        lay.addWidget(vu_frame)
+        # Encoder status row
+        enc_row = QHBoxLayout()
+        enc_row.setSpacing(8)
 
-        # Separador visual
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(f"background:{T('border')}; max-height:1px;")
-        lay.addWidget(sep)
+        px_enc = xp_pixmap("Record.png", 28)
+        lbl_enc_icon = QLabel()
+        if not px_enc.isNull(): lbl_enc_icon.setPixmap(px_enc)
+        enc_row.addWidget(lbl_enc_icon)
 
-        # Micrófono
+        col_enc = QVBoxLayout()
+        col_enc.setSpacing(2)
+        lbl_enc_t = QLabel("Encoder")
+        lbl_enc_t.setStyleSheet(f"font-weight:bold; color:{T('text')};")
+        col_enc.addWidget(lbl_enc_t)
+        self._lbl_enc_status = QLabel("Desconectado")
+        self._lbl_enc_status.setStyleSheet(f"color:{T('text_dim')}; font-size:8pt;")
+        col_enc.addWidget(self._lbl_enc_status)
+        enc_row.addLayout(col_enc, 1)
+
+        self.btn_encoder = QPushButton(" OFF")
+        _px_enc_btn = xp_pixmap("Record.png", 18)
+        if not _px_enc_btn.isNull():
+            self.btn_encoder.setIcon(QIcon(_px_enc_btn))
+            self.btn_encoder.setIconSize(QSize(18, 18))
+        self.btn_encoder.setCheckable(True)
+        self.btn_encoder.setFixedSize(76, 36)
+        self.btn_encoder.setToolTip("Iniciar/detener transmisión del encoder")
+        self.btn_encoder.toggled.connect(self._toggle_encoder)
+        self._update_encoder_style(False)
+        enc_row.addWidget(self.btn_encoder)
+        lay.addLayout(enc_row)
+
+        # Info del encoder
+        self._lbl_enc_info = QLabel("—")
+        self._lbl_enc_info.setStyleSheet(f"color:{T('text_secondary')}; font-size:7pt; margin-top:4px;")
+        lay.addWidget(self._lbl_enc_info)
+
+        # Botón configurar
+        btn_config = QPushButton("  Configurar Encoder…")
+        px_cfg = xp_pixmap("Settings.png", 12)
+        if not px_cfg.isNull():
+            btn_config.setIcon(QIcon(px_cfg))
+            btn_config.setIconSize(QSize(12, 12))
+        btn_config.setFixedHeight(24)
+        btn_config.setToolTip("Abrir configuración del encoder (codec, servidor, etc.)")
+        btn_config.clicked.connect(self._config_encoder)
+        lay.addWidget(btn_config)
+
+        # Micrófono compacto
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.Shape.HLine)
+        sep2.setStyleSheet(f"background:{T('border')}; max-height:1px; margin-top:6px;")
+        lay.addWidget(sep2)
+
         mic_row = QHBoxLayout()
-        mic_row.setSpacing(8)
-        px_mic = xp_pixmap("AudioDevices.png", 28)
+        mic_row.setSpacing(6)
+        px_mic = xp_pixmap("AudioDevices.png", 20)
         lbl_mic_icon = QLabel()
         if not px_mic.isNull(): lbl_mic_icon.setPixmap(px_mic)
         mic_row.addWidget(lbl_mic_icon)
 
         col_mic = QVBoxLayout()
-        col_mic.setSpacing(2)
+        col_mic.setSpacing(1)
         lbl_mic_t = QLabel("Micrófono")
-        lbl_mic_t.setStyleSheet(f"font-weight:bold; color:{T('text')};")
+        lbl_mic_t.setStyleSheet(f"font-weight:bold; color:{T('text')}; font-size:9pt;")
         col_mic.addWidget(lbl_mic_t)
-        lbl_mic_s = QLabel("Fuente principal de audio")
-        lbl_mic_s.setStyleSheet(f"color:{T('text_secondary')}; font-size:8pt;")
-        col_mic.addWidget(lbl_mic_s)
         mic_row.addLayout(col_mic, 1)
 
         self.btn_mic = QPushButton(" OFF")
-        _px_mic_btn = xp_pixmap("Volume.png", 18)
+        _px_mic_btn = xp_pixmap("Volume.png", 14)
         if not _px_mic_btn.isNull():
             self.btn_mic.setIcon(QIcon(_px_mic_btn))
-            self.btn_mic.setIconSize(QSize(18, 18))
+            self.btn_mic.setIconSize(QSize(14, 14))
         self.btn_mic.setCheckable(True)
-        self.btn_mic.setFixedSize(76, 36)
+        self.btn_mic.setFixedSize(60, 28)
         self.btn_mic.setToolTip("Activar / silenciar micrófono")
         self.btn_mic.toggled.connect(self._toggle_mic)
         self._update_mic_style(False)
         mic_row.addWidget(self.btn_mic)
         lay.addLayout(mic_row)
 
-        # Fuente
-        lbl_src = QLabel("Fuente de entrada:")
-        lbl_src.setStyleSheet(f"color:{T('text_secondary')}; font-size:8pt; margin-top:4px;")
-        lay.addWidget(lbl_src)
+        # Fuente de entrada micrófono
         self._mic_src_combo = QComboBox()
         self._mic_src_combo.setToolTip("Seleccionar dispositivo de micrófono")
+        self._mic_src_combo.setFixedHeight(24)
         lay.addWidget(self._mic_src_combo)
         self._populate_mic_sources()
 
-        # Sliders de volumen
-        self._vol_sliders: dict[str, QSlider] = {}
-        for label, key, val in [
-            ("Volumen Micrófono", "mic", 80),
-            ("Volumen Monitor",   "mon", 60),
-            ("Ganancia Entrada",  "gain",50),
-        ]:
-            lbl_v = QLabel(label)
-            lbl_v.setStyleSheet(f"color:{T('text_secondary')}; font-size:8pt; margin-top:4px;")
-            lay.addWidget(lbl_v)
-            row_v = QHBoxLayout()
-            sl = QSlider(Qt.Orientation.Horizontal)
-            sl.setRange(0, 100)
-            sl.setValue(val)
-            sl.setToolTip(f"{label}: {val}%")
-            row_v.addWidget(sl, 1)
-            val_lbl = QLabel(f"{val}%")
-            val_lbl.setFixedWidth(38)
-            val_lbl.setStyleSheet(f"font-size:8pt; color:{T('text_secondary')};")
-            row_v.addWidget(val_lbl)
-            sl.valueChanged.connect(lambda v, l=val_lbl, s=sl: (
-                l.setText(f"{v}%"),
-                s.setToolTip(f"{v}%")
-            ))
-            if key == "mic":
-                sl.valueChanged.connect(lambda v: self.passthrough.set_volume(v / 100))
-            elif key == "mon":
-                sl.valueChanged.connect(lambda v: self.engine.set_volume(v / 100))
-            lay.addLayout(row_v)
-            self._vol_sliders[key] = sl
+        # Slider volumen micrófono
+        lbl_vol_mic = QLabel("Volumen Micrófono")
+        lbl_vol_mic.setStyleSheet(f"color:{T('text_secondary')}; font-size:7pt; margin-top:4px;")
+        lay.addWidget(lbl_vol_mic)
+        row_v = QHBoxLayout()
+        sl_mic = QSlider(Qt.Orientation.Horizontal)
+        sl_mic.setRange(0, 100)
+        sl_mic.setValue(80)
+        sl_mic.setToolTip("Volumen Micrófono: 80%")
+        row_v.addWidget(sl_mic, 1)
+        val_lbl = QLabel("80%")
+        val_lbl.setFixedWidth(38)
+        val_lbl.setStyleSheet(f"font-size:7pt; color:{T('text_secondary')};")
+        row_v.addWidget(val_lbl)
+        sl_mic.valueChanged.connect(lambda v, l=val_lbl, s=sl_mic: (
+            l.setText(f"{v}%"),
+            s.setToolTip(f"Volumen Micrófono: {v}%")
+        ))
+        sl_mic.valueChanged.connect(lambda v: self.passthrough.set_volume(v / 100))
+        lay.addLayout(row_v)
+        self._vol_sliders = {"mic": sl_mic}
 
         lay.addStretch()
         return p
+
+    def _update_encoder_style(self, active: bool):
+        if active:
+            self.btn_encoder.setText(" ON")
+            self.btn_encoder.setStyleSheet(
+                f"QPushButton {{ background:{T('success')}; color:#fff; border:1px solid {T('border')}; "
+                f"border-radius:3px; font-weight:bold; padding:4px; }}"
+            )
+        else:
+            self.btn_encoder.setText(" OFF")
+            self.btn_encoder.setStyleSheet(
+                f"QPushButton {{ background:{T('bg_surface')}; color:{T('text_secondary')}; "
+                f"border:1px solid {T('border')}; border-radius:3px; padding:4px; }}"
+            )
 
     # ═══════════════════════════════════════════════════
     #  STATUS BAR
@@ -2577,6 +4331,8 @@ class MainWindow(QMainWindow):
             self._attach_dtmf_to_passthrough()
         self.passthrough.start()
         self._wave.set_metadata("♪ SEÑAL PRINCIPAL: Audio en vivo  •  RadioSAT XP")
+        self._set_dashboard_source("AL AIRE · SEÑAL DE CADENA", "Fuente: cadena principal",
+                                   "La señal de cadena se transmite a la audiencia")
         print("[SIGNAL] ✓ Passthrough iniciado")
 
     def _stop_main_signal(self):
@@ -2584,6 +4340,9 @@ class MainWindow(QMainWindow):
         self.passthrough.set_muted(False)
         self._detach_dtmf_from_passthrough()
         self.passthrough.stop()
+        if not self._pauta_on and not self._remote_on:
+            self._set_dashboard_source("SIN FUENTE CONFIRMADA", "Fuente: sin datos",
+                                       "Configura o activa una fuente de programa")
         self._wave.set_idle()
         # Reanudar reproductor si estaba reproduciendo antes
         if self._was_playing_before_signal:
@@ -2597,7 +4356,10 @@ class MainWindow(QMainWindow):
         self.dtmf.stop()
         self.dtmf.start_external()
         self.passthrough.register_input_callback(self.dtmf.feed_samples)
-        self._sb_dtmf_lbl.setText("  DTMF: Señal Principal  ")
+        self._on_dtmf_status("Escuchando señal principal")
+        status_label = getattr(self, "_sb_dtmf_lbl", None)
+        if status_label is not None:
+            status_label.setText("  DTMF: Señal Principal  ")
 
     def _detach_dtmf_from_passthrough(self):
         """Desconecta el DTMF del passthrough y restaura modo normal si aplica."""
@@ -2723,7 +4485,7 @@ class MainWindow(QMainWindow):
             if self._signal_on:
                 print("[PAUTA] Deteniendo señal principal...")
                 self._hold_main_signal_for_pauta()
-            if self._remote_on and self.remote_engine.is_playing:
+            if self._remote_on and self.remote_engine.is_playing():
                 self.remote_engine.set_muted(True)
             print("[PAUTA] Iniciando reproducción desde el inicio...")
             self.engine.play(0)
@@ -2771,7 +4533,10 @@ class MainWindow(QMainWindow):
             else:
                 print("[DTMF] Iniciando detector...")
                 self.dtmf.start()
-                self._sb_dtmf_lbl.setText("  DTMF: Escuchando…  ")
+                self._on_dtmf_status("Escuchando entrada DTMF")
+                status_label = getattr(self, "_sb_dtmf_lbl", None)
+                if status_label is not None:
+                    status_label.setText("  DTMF: Escuchando…  ")
             t = _current_theme
             self.btn_dtmf_main.setStyleSheet(f"""
                 QPushButton {{ background:{t['warning']};
@@ -2783,7 +4548,10 @@ class MainWindow(QMainWindow):
             print("[DTMF] Deteniendo detector...")
             self._detach_dtmf_from_passthrough()
             self.dtmf.stop()
-            self._sb_dtmf_lbl.setText("  DTMF: inactivo  ")
+            self._on_dtmf_status("Detector DTMF inactivo")
+            status_label = getattr(self, "_sb_dtmf_lbl", None)
+            if status_label is not None:
+                status_label.setText("  DTMF: inactivo  ")
             self.btn_dtmf_main.setStyleSheet("")
 
     def _toggle_dtmf_panel(self):
@@ -2868,6 +4636,8 @@ class MainWindow(QMainWindow):
         if state == "playing":
             self._lbl_remote_status.setText("Reproduciendo")
             self._lbl_remote_status.setStyleSheet(f"color:{T('success')}; font-size:7pt;")
+            self._set_dashboard_source("AL AIRE · SEÑAL REMOTA", "Fuente: streaming remoto",
+                                       "La señal remota se transmite a la audiencia")
         elif state == "error":
             self._lbl_remote_status.setText("Error de conexión")
             self._lbl_remote_status.setStyleSheet(f"color:{T('danger')}; font-size:7pt;")
@@ -2884,7 +4654,7 @@ class MainWindow(QMainWindow):
                 self._lbl_remote_status.setStyleSheet(f"color:{T('text_dim')}; font-size:7pt;")
 
     def _on_remote_level(self, l: float, r: float):
-        if len(self._vu_bars) >= 4:
+        if len(self._vu_bars) >= 2:
             self._vu_bars[0].set_value(min(l, 1.0))
             self._vu_bars[1].set_value(min(r * 0.9, 1.0))
 
@@ -3039,6 +4809,8 @@ class MainWindow(QMainWindow):
         except Exception:
             self._out_dev_combo.addItem("Sistema predeterminado", None)
             self._remote_out_dev_combo.addItem("Sistema predeterminado", None)
+        if hasattr(self, "_lbl_status_input"):
+            self._sync_dashboard_status()
 
     def _on_out_dev_changed(self, idx):
         """Aplica el dispositivo de salida seleccionado al reproductor local."""
@@ -3061,6 +4833,7 @@ class MainWindow(QMainWindow):
         dev    = self._dtmf_dev_combo.currentData()
         self.dtmf.set_params(freq_tol=tol, rms_threshold=thresh, device=dev)
         self.remote_dtmf.set_params(freq_tol=tol, rms_threshold=thresh)
+        self._sync_dashboard_dtmf_rules()
 
     def _send_test_tone(self):
         if not SOUND_OK:
@@ -3140,23 +4913,31 @@ class MainWindow(QMainWindow):
 
     def _on_dtmf_digit(self, digit: str):
         now = time.time()
-        
+
         # Si pasaron más de 5 segundos sin dígitos, limpiar buffer
         if now - self._last_digit_time > 5.0 and self._dtmf_log:
             self._dtmf_log.clear()
             self._dtmf_seq_progress.clear()
-        
+
         self._last_digit_time = now
         self._dtmf_log.append(digit)
         seq = "".join(self._dtmf_log[-10:])
-        
+
+        # Actualizar último código en el nuevo panel DTMF
+        if hasattr(self, '_lbl_last_code'):
+            from datetime import datetime
+            time_str = datetime.now().strftime("%H:%M:%S")
+            self._lbl_last_code.setText(f"{seq} · {time_str}")
+
         play_seq = self._dtmf_seq_play.text().strip()
         stop_seq = self._dtmf_seq_stop.text().strip()
         matched_seq = self._matched_dtmf_sequence(digit, [play_seq, stop_seq])
-        
+
         # Modo normal: mostrar dígitos en display
-        self._dtmf_display.setText(seq)
-        self._sb_dtmf_lbl.setText(f"  DTMF: [{digit}] {seq}")
+        if hasattr(self, '_dtmf_display'):
+            self._dtmf_display.setText(seq)
+        if hasattr(self, '_sb_dtmf_lbl'):
+            self._sb_dtmf_lbl.setText(f"  DTMF: [{digit}] {seq}")
         
         if play_seq and matched_seq == play_seq:
             print(f"[DTMF] === SECUENCIA PLAY DETECTADA: {play_seq} ===")
@@ -3263,18 +5044,31 @@ class MainWindow(QMainWindow):
         self._dtmf_activating = False
 
     def _on_dtmf_level(self, l: float, r: float):
-        if len(self._vu_bars) >= 4:
-            # Micrófono — solo barras ocultas (no interfiere con visualización principal)
-            self._vu_bars[2].set_value(min(l, 1.0))
-            self._vu_bars[3].set_value(min(r * 0.9, 1.0))
+        if len(self._vu_bars) >= 2:
+            self._vu_bars[0].set_value(min(l, 1.0))
+            self._vu_bars[1].set_value(min(r * 0.9, 1.0))
 
     def _on_dtmf_status(self, status: str):
-        if hasattr(self, '_lbl_detector_status'):
-            self._lbl_detector_status.setText(status)
-        # print(f"[DTMF STATUS] {status}")
+        display_status = status
+        if status.lower().startswith("rms=") or status.lower().startswith("detector: activo"):
+            display_status = "Escuchando entrada DTMF" if self._dtmf_on else "Detector DTMF inactivo"
+        elif status.upper().startswith("DTMF:"):
+            display_status = f"Tono detectado: {status.split(':', 1)[1].strip()}"
+        if hasattr(self, '_lbl_dtmf_state'):
+            self._lbl_dtmf_state.setText(display_status)
+        if hasattr(self, '_lbl_dtmf_status'):
+            self._lbl_dtmf_status.setText(display_status)
+        active = self._dtmf_on and "error" not in status.lower() and "inactiv" not in status.lower()
+        if hasattr(self, '_dashboard_dtmf_led'):
+            self._dashboard_dtmf_led.set_on(active)
+            self._lbl_dtmf_status.setStyleSheet(
+                f"font-size:13px;font-weight:700;color:{T('success') if active else T('text_secondary')};")
+        if hasattr(self, '_header_dtmf_led'):
+            self._header_dtmf_led.set_on(active)
+            self._lbl_header_dtmf.setText("DTMF activo" if active else "DTMF inactivo")
 
     def _on_passthrough_level(self, l: float, r: float):
-        if len(self._vu_bars) >= 4:
+        if len(self._vu_bars) >= 2:
             self._vu_bars[0].set_value(min(l, 1.0))
             self._vu_bars[1].set_value(min(r * 0.9, 1.0))
 
@@ -3308,6 +5102,7 @@ class MainWindow(QMainWindow):
         self._table_playlist.setRowCount(0)
         self._lbl_current_track.setText("♪  Sin canción cargada")
         self._save_playlist_to_disk()
+        self._sync_dashboard()
 
     def _add_to_playlist(self):
         files, _ = QFileDialog.getOpenFileNames(
@@ -3321,6 +5116,18 @@ class MainWindow(QMainWindow):
                 self._add_playlist_row(info)
         self._save_playlist_to_disk()
 
+    def _add_paths_to_playlist(self, paths: list[str]):
+        """Añade un drop a la pauta preparada y lo persiste de inmediato."""
+        added = 0
+        for path in paths:
+            info = self.engine.add_file(path)
+            if info:
+                self._add_playlist_row(info)
+                added += 1
+        if added:
+            self._save_playlist_to_disk()
+            self._sync_dashboard()
+
     def _remove_from_playlist(self):
         row = self._table_playlist.currentRow()
         if row < 0:
@@ -3329,6 +5136,7 @@ class MainWindow(QMainWindow):
         self._table_playlist.removeRow(row)
         self._renumber_playlist()
         self._save_playlist_to_disk()
+        self._sync_dashboard()
 
     def _open_playlist_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -3353,6 +5161,7 @@ class MainWindow(QMainWindow):
                             self._add_playlist_row(info)
         except Exception as e:
             self._show_error(str(e))
+        self._sync_dashboard()
 
     def _save_playlist_file(self):
         if not self.engine.playlist:
@@ -3382,6 +5191,7 @@ class MainWindow(QMainWindow):
             item.setToolTip(info["path"])
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self._table_playlist.setItem(row, col, item)
+        self._sync_dashboard()
 
     def _renumber_playlist(self):
         for r in range(self._table_playlist.rowCount()):
@@ -3398,55 +5208,75 @@ class MainWindow(QMainWindow):
     #  SEÑALES DEL MOTOR
     # ═══════════════════════════════════════════════════
     def _on_track_changed(self, idx: int, artist: str, title: str, duration: str):
-        self._lbl_current_track.setText(f"♪  {title}  –  {artist}  [{duration}]")
-        self._lbl_dur.setText(duration)
-        self._sb_track_lbl.setText(f"  ▶ {artist} – {title}  ")
-        # Actualizar estado en tabla
-        t = _current_theme
-        for r in range(self._table_playlist.rowCount()):
-            st_item = self._table_playlist.item(r, 4)
-            if st_item:
-                if r == idx:
-                    st_item.setText("▶ Sonando")
-                    st_item.setBackground(QBrush(QColor(t["accent"]).lighter(180)))
-                elif r < idx:
-                    st_item.setText("✓ Emitida")
-                    st_item.setBackground(QBrush(QColor(t["bg_surface_alt"])))
-                else:
-                    st_item.setText("En cola")
-                    st_item.setBackground(QBrush(QColor(0,0,0,0)))
+        if hasattr(self, '_lbl_current_track'):
+            self._lbl_current_track.setText(f"♪  {title}  –  {artist}  [{duration}]")
+        if hasattr(self, '_lbl_dur'):
+            self._lbl_dur.setText(duration)
+        if hasattr(self, '_sb_track_lbl'):
+            self._sb_track_lbl.setText(f"  ▶ {artist} – {title}  ")
+        # Actualizar estado en tabla de pauta
+        if hasattr(self, '_pauta_table'):
+            t = _current_theme
+            for r in range(self._pauta_table.rowCount()):
+                st_item = self._pauta_table.item(r, 4)
+                if st_item:
+                    if r == idx:
+                        st_item.setText("▶ Reproduciendo")
+                        st_item.setBackground(QBrush(QColor(t["accent"]).lighter(180)))
+                    elif r < idx:
+                        st_item.setText("✓ Emitido")
+                        st_item.setBackground(QBrush(QColor(t["bg_surface_alt"])))
+                    else:
+                        st_item.setText("Preparado")
+                        st_item.setBackground(QBrush(QColor(0,0,0,0)))
 
     def _on_playback_state(self, state: str):
-        if state == "playing":
-            self.btn_play.setIcon(QIcon(xp_pixmap("Pause.png", 16)))
-            self._lbl_on_air.setVisible(True)
-        elif state == "paused":
-            self.btn_play.setIcon(QIcon(xp_pixmap("Play.png", 16)))
-            self._lbl_on_air.setVisible(False)
-            self._wave._active = False
-        else:
-            self.btn_play.setIcon(QIcon(xp_pixmap("Play.png", 16)))
-            self._lbl_on_air.setVisible(False)
-            self._wave.set_idle()
-            for r in range(self._table_playlist.rowCount()):
-                st = self._table_playlist.item(r, 4)
-                if st and st.text() == "▶ Sonando":
-                    st.setText("En cola")
+        if hasattr(self, 'btn_play'):
+            if state == "playing":
+                self.btn_play.setIcon(QIcon(xp_pixmap("Pause.png", 16)))
+            elif state == "paused":
+                self.btn_play.setIcon(QIcon(xp_pixmap("Play.png", 16)))
+            else:
+                self.btn_play.setIcon(QIcon(xp_pixmap("Play.png", 16)))
+        if hasattr(self, '_lbl_on_air'):
+            self._lbl_on_air.setVisible(state == "playing")
+        if hasattr(self, '_wave'):
+            if state == "paused":
+                self._wave._active = False
+            elif state == "stopped":
+                self._wave.set_idle()
+        if hasattr(self, '_pauta_table') and state == "stopped":
+            for r in range(self._pauta_table.rowCount()):
+                st = self._pauta_table.item(r, 4)
+                if st and st.text() == "▶ Reproduciendo":
+                    st.setText("Preparado")
                     st.setBackground(QBrush(QColor(0,0,0,0)))
+        if state == "playing":
+            self._set_dashboard_source("AL AIRE · PAUTA LOCAL", "Fuente: reproductor local",
+                                       "La pauta local se transmite a la audiencia")
+        elif state == "stopped" and not self._signal_on and not self._remote_on:
+            self._set_dashboard_source("SIN FUENTE CONFIRMADA", "Fuente: sin datos",
+                                       "Configura o activa una fuente de programa")
 
     def _on_position_tick(self, ms_cur: int, ms_total: int):
         if self._seeking:
             return
-        if ms_total > 0:
+        if hasattr(self, '_song_slider') and ms_total > 0:
             pct = ms_cur / ms_total
             self._song_slider.setValue(int(pct * 1000))
-        secs = ms_cur // 1000
-        self._lbl_pos.setText(f"{secs//60}:{secs%60:02d}")
+        if hasattr(self, '_lbl_pos'):
+            secs = ms_cur // 1000
+            self._lbl_pos.setText(f"{secs//60}:{secs%60:02d}")
 
     def _on_engine_level(self, l: float, r: float):
-        self._vu_bars[0].set_value(l)
-        self._vu_bars[1].set_value(r)
-        self._wave.push_level((l + r) / 2)
+        if len(self._vu_bars) >= 2:
+            self._vu_bars[0].set_value(l)
+            self._vu_bars[1].set_value(r)
+        if hasattr(self, '_wave'):
+            self._wave.push_level((l + r) / 2)
+        if hasattr(self, '_vu_output') and len(self._vu_output) >= 2:
+            self._vu_output[0].set_value(l)
+            self._vu_output[1].set_value(r)
 
     # ═══════════════════════════════════════════════════
     #  ACCIONES: BIBLIOTECA
@@ -3468,6 +5298,8 @@ class MainWindow(QMainWindow):
                 item.setToolTip(url)
                 self._table_library.setItem(row, c, item)
             self._lbl_lib_count.setText(f"  {self._table_library.rowCount()} archivos")
+            self._save_library_to_disk()
+            self._sync_dashboard()
 
     def _add_audio_files(self):
         files, _ = QFileDialog.getOpenFileNames(
@@ -3522,12 +5354,16 @@ class MainWindow(QMainWindow):
             item.setToolTip(path)
             self._table_library.setItem(row, c, item)
         self._lbl_lib_count.setText(f"  {self._table_library.rowCount()} archivos")
+        self._save_library_to_disk()
+        self._sync_dashboard()
 
     def _del_from_library(self):
         row = self._table_library.currentRow()
         if row >= 0:
             self._table_library.removeRow(row)
             self._lbl_lib_count.setText(f"  {self._table_library.rowCount()} archivos")
+            self._save_library_to_disk()
+            self._sync_dashboard()
 
     def _clear_library(self):
         if QMessageBox.question(self, "Limpiar Biblioteca",
@@ -3536,6 +5372,8 @@ class MainWindow(QMainWindow):
         ) == QMessageBox.StandardButton.Yes:
             self._table_library.setRowCount(0)
             self._lbl_lib_count.setText("  0 archivos")
+            self._save_library_to_disk()
+            self._sync_dashboard()
 
     def _library_double_click(self, index):
         row = index.row()
@@ -3593,18 +5431,57 @@ class MainWindow(QMainWindow):
             if not ok2:
                 spot = Path(f).stem
 
-            row = self._table_pautas.rowCount()
-            self._table_pautas.insertRow(row)
-            for c, v in enumerate([Path(f).name, cliente, spot,
-                                    info["duration"], "18:00, 20:00", "L-V"]):
-                item = QTableWidgetItem(v)
-                item.setToolTip(f)
-                self._table_pautas.setItem(row, c, item)
+            self._insert_pauta_row(f, cliente, spot, info["duration"], "18:00, 20:00", "L-V")
+        self._save_pautas_to_disk()
+
+    def _insert_pauta_row(self, path: str, cliente: str, spot: str,
+                          duration: str, horario: str = "", dias: str = ""):
+        table = self._table_pautas
+        previous = table.blockSignals(True)
+        try:
+            row = table.rowCount()
+            table.insertRow(row)
+            values = [Path(path).name, cliente, spot, duration, horario, dias, path]
+            for column, value in enumerate(values[:table.columnCount()]):
+                item = QTableWidgetItem(str(value))
+                item.setToolTip(path)
+                table.setItem(row, column, item)
+        finally:
+            table.blockSignals(previous)
+
+    def _add_paths_to_pautas(self, paths: list[str]):
+        """Crea pautas editables al soltar audios desde biblioteca o Finder."""
+        added = 0
+        existing = {
+            self._table_pautas.item(row, 6).text()
+            for row in range(self._table_pautas.rowCount())
+            if self._table_pautas.columnCount() > 6 and self._table_pautas.item(row, 6)
+        }
+        for path in paths:
+            if path in existing:
+                continue
+            info = self.engine._read_tags(path)
+            if not info:
+                continue
+            artist = info.get("artist", "")
+            cliente = "" if artist in ("", "Desconocido") else artist
+            self._insert_pauta_row(
+                path, cliente, info.get("title") or Path(path).stem,
+                info.get("duration", "0:00")
+            )
+            existing.add(path)
+            added += 1
+        if added:
+            self._save_pautas_to_disk()
+
+    def _on_pauta_item_changed(self, _item):
+        self._save_pautas_to_disk()
 
     def _del_pauta(self):
         row = self._table_pautas.currentRow()
         if row >= 0:
             self._table_pautas.removeRow(row)
+            self._save_pautas_to_disk()
 
     # ═══════════════════════════════════════════════════
     #  ACCIONES: AUDIO / MIC
@@ -3620,9 +5497,11 @@ class MainWindow(QMainWindow):
             self.btn_mic.setIconSize(QSize(18, 18))
         # sounddevice: no hay API directa de mute; sólo actualizamos UI
         if checked:
-            self._vu_bars[2].set_value(0.5)
+            if len(self._vu_bars) >= 1:
+                self._vu_bars[0].set_value(0.5)
         else:
-            self._vu_bars[2].set_value(0.0)
+            if len(self._vu_bars) >= 1:
+                self._vu_bars[0].set_value(0.0)
 
     def _update_mic_style(self, on: bool):
         t = _current_theme
@@ -3721,12 +5600,16 @@ class MainWindow(QMainWindow):
         for vb in self._vu_bars:
             vb.update()
         self._wave.update()
+        clock_background = T('surface_raised') if _current_theme is THEME_LIGHT else T('clock_bg')
         self._clock.setStyleSheet(f"""
-            QLCDNumber {{
-                background: {T('clock_bg')};
-                color: {T('clock_color')};
+            QLabel#liveClock {{
+                background: {clock_background};
+                color: {T('text_primary')};
                 border: 1px solid {T('border')};
-                border-radius: 6px;
+                border-radius: 5px;
+                padding: 6px 14px;
+                font-size: 28px;
+                font-weight: 700;
             }}
         """)
 
@@ -3749,6 +5632,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         # Guardar datos antes de cerrar
         self._save_library_to_disk()
+        self._save_pautas_to_disk()
         self._save_remotes_to_disk()
         self._save_playlist_to_disk()
         self.remote_dtmf.stop()
@@ -3769,6 +5653,17 @@ class MainWindow(QMainWindow):
         os.makedirs(data_dir, exist_ok=True)
         return data_dir
 
+    def _write_json_atomic(self, filename: str, data):
+        """Evita archivos JSON incompletos si la aplicación se interrumpe."""
+        import json
+        path = os.path.join(self._get_data_dir(), filename)
+        temporary = path + ".tmp"
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False, indent=2)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+
     def _save_library_to_disk(self):
         import json
         try:
@@ -3783,11 +5678,51 @@ class MainWindow(QMainWindow):
                 if row_data:
                     items.append(row_data)
             
-            path = os.path.join(self._get_data_dir(), "library.json")
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(items, f, ensure_ascii=False, indent=2)
+            self._write_json_atomic("library.json", items)
         except Exception as e:
             print(f"Error guardando biblioteca: {e}")
+
+    def _save_pautas_to_disk(self):
+        try:
+            if not hasattr(self, "_table_pautas"):
+                return
+            headers = ["Archivo", "Cliente", "Spot", "Duración", "Horario", "Días", "Ruta"]
+            items = []
+            for row in range(self._table_pautas.rowCount()):
+                values = {}
+                for column, header in enumerate(headers[:self._table_pautas.columnCount()]):
+                    item = self._table_pautas.item(row, column)
+                    values[header] = item.text() if item else ""
+                if values.get("Archivo"):
+                    items.append(values)
+            self._write_json_atomic("pautas.json", items)
+        except Exception as e:
+            print(f"Error guardando pautas: {e}")
+
+    def _load_pautas_from_disk(self):
+        import json
+        path = os.path.join(self._get_data_dir(), "pautas.json")
+        if not os.path.exists(path) or not hasattr(self, "_table_pautas"):
+            return
+        try:
+            with open(path, encoding="utf-8") as handle:
+                items = json.load(handle)
+            previous = self._table_pautas.blockSignals(True)
+            try:
+                for values in items:
+                    ruta = values.get("Ruta", "")
+                    is_url = ruta.startswith("http://") or ruta.startswith("https://")
+                    if ruta and not is_url and not os.path.exists(ruta):
+                        continue
+                    self._insert_pauta_row(
+                        ruta or values.get("Archivo", ""), values.get("Cliente", ""),
+                        values.get("Spot", ""), values.get("Duración", ""),
+                        values.get("Horario", ""), values.get("Días", "")
+                    )
+            finally:
+                self._table_pautas.blockSignals(previous)
+        except Exception as e:
+            print(f"Error cargando pautas: {e}")
 
     def _load_library_from_disk(self):
         import json
@@ -3869,9 +5804,7 @@ class MainWindow(QMainWindow):
                     "duration_ms": t.get("duration_ms", 0)
                 })
             
-            path = os.path.join(self._get_data_dir(), "playlist.json")
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(items, f, ensure_ascii=False, indent=2)
+            self._write_json_atomic("playlist.json", items)
         except Exception as e:
             print(f"Error guardando playlist: {e}")
 
@@ -3883,7 +5816,7 @@ class MainWindow(QMainWindow):
         try:
             with open(path, encoding="utf-8") as f:
                 items = json.load(f)
-            
+
             for item in items:
                 ruta = item.get("path", "")
                 is_url = ruta.startswith("http://") or ruta.startswith("https://")
@@ -3895,11 +5828,1162 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error cargando playlist: {e}")
 
+    # ═══════════════════════════════════════════════════
+    #  ENCODER / STREAMING
+    # ═══════════════════════════════════════════════════
+    def _config_encoder(self):
+        dialog = EncoderSettingsDialog(self, self._encoder_settings)
+        if dialog.exec():
+            self._encoder_settings = dialog.get_settings()
+            self._save_encoder_settings()
+            if self._encoder_on:
+                self._stop_encoder()
+                self._start_encoder()
+
+    def _toggle_encoder(self, checked):
+        if checked:
+            if not self._encoder_settings:
+                self._load_encoder_settings()
+            if not self._encoder_settings.get('host') or not self._encoder_settings.get('password'):
+                QMessageBox.warning(self, "Encoder",
+                    "Configura el encoder primero (Configuración → Configurar Encoder)")
+                self.btn_encoder.setChecked(False)
+                return
+            self._start_encoder()
+        else:
+            self._stop_encoder()
+
+    def _start_encoder(self):
+        s = self._encoder_settings
+        if not s:
+            return
+
+        loopback_dev = self._resolve_loopback_device(s)
+        if loopback_dev is None:
+            self._show_error("No se encontró el dispositivo que contiene el bus de programa. "
+                             "Abre Configurar encoder y selecciona el loopback nuevamente.")
+            self.btn_encoder.setChecked(False)
+            return
+
+        self.loopback.set_device(loopback_dev)
+        self.loopback.set_sample_rate(s.get('samplerate', 44100))
+        self.loopback.set_channels(s.get('channels', 2))
+
+        codec = s.get('codec', 'Opus').lower()
+        bitrate = s.get('bitrate', 128)
+        samplerate = s.get('samplerate', 44100)
+        channels = s.get('channels', 2)
+
+        self.encoder.set_codec(codec)
+        self.encoder.set_bitrate(bitrate)
+        self.encoder.set_sample_rate(samplerate)
+        self.encoder.set_channels(channels)
+
+        server_type = s.get('server_type', 'icecast')
+        self.stream_client.set_server(
+            s.get('host', ''),
+            s.get('port', 8000),
+            s.get('mount', '/live'),
+            s.get('username', 'source'),
+            s.get('password', ''),
+            server_type,
+            "audio/mpeg" if codec == "mp3" else "audio/ogg"
+        )
+        self.stream_client.set_metadata(
+            s.get('name', 'RadioSAT XP'),
+            s.get('genre', 'Various'),
+            s.get('description', '')
+        )
+
+        self.loopback.start()
+        self.encoder.start()
+        self.stream_client.start()
+
+        self._encoder_on = True
+        self._led_encoder.set_on(True)
+        self._update_encoder_style(True)
+        if hasattr(self, '_lbl_enc_info'):
+            ch_str = "Stereo" if channels == 2 else "Mono"
+            self._lbl_enc_info.setText(f"{codec.upper()} @ {bitrate}kbps | {samplerate}Hz | {ch_str}")
+        if hasattr(self, '_lbl_enc_status'):
+            self._lbl_enc_status.setText("Conectando...")
+            self._lbl_enc_status.setStyleSheet(f"color:{T('warning')}; font-size:8pt;")
+        print("[Encoder] Iniciado")
+
+    def _resolve_loopback_device(self, settings: dict):
+        """Resuelve por nombre para no depender de índices PortAudio cambiantes."""
+        device_id = settings.get("loopback_device")
+        saved_name = settings.get("loopback_device_name", "").replace("[Loopback] ", "")
+        if not SOUND_OK:
+            return None
+        try:
+            devices = sd.query_devices()
+            if saved_name:
+                for index, device in enumerate(devices):
+                    if device.get("max_input_channels", 0) > 0 and device.get("name", "") == saved_name:
+                        settings["loopback_device"] = index
+                        return index
+            if isinstance(device_id, int) and 0 <= device_id < len(devices):
+                if devices[device_id].get("max_input_channels", 0) > 0:
+                    return device_id
+        except Exception as error:
+            print(f"[Loopback] No se pudo resolver el dispositivo: {error}")
+        return None
+
+    def _stop_encoder(self):
+        self.loopback.stop()
+        self.encoder.stop()
+        self.stream_client.stop()
+        self._encoder_on = False
+        self._led_encoder.set_on(False)
+        self.btn_encoder.setChecked(False)
+        self._update_encoder_style(False)
+        if hasattr(self, '_lbl_enc_info'):
+            self._lbl_enc_info.setText("—")
+        if hasattr(self, '_lbl_enc_status'):
+            self._lbl_enc_status.setText("Detenido")
+            self._lbl_enc_status.setStyleSheet(f"color:{T('text_dim')}; font-size:8pt;")
+        print("[Encoder] Detenido")
+
+    def _on_loopback_audio(self, data: bytes):
+        if self._encoder_on:
+            self.encoder.write_pcm(data)
+
+    def _on_encoded_data(self, data: bytes):
+        if self._encoder_on:
+            self.stream_client.send_data(data)
+
+    def _set_encoder_feedback(self, text: str, color_key: str = "warning"):
+        for name in ("_lbl_enc_status", "_lbl_encoder_status", "_lbl_stream_status"):
+            label = getattr(self, name, None)
+            if label is not None:
+                label.setText(text)
+                label.setStyleSheet(f"color:{T(color_key)};font-size:9pt;")
+
+    def _on_loopback_error(self, message: str):
+        print(f"[Loopback] {message}")
+        self._set_encoder_feedback("Sin audio del bus de programa", "danger")
+        if self._encoder_on:
+            self._stop_encoder()
+        QMessageBox.critical(self, "Captura del programa", message)
+
+    def _on_encoder_error(self, message: str):
+        print(f"[Encoder] {message}")
+        self._set_encoder_feedback("Error de codificación", "danger")
+        QMessageBox.critical(self, "Encoder", message)
+
+    def _on_stream_error(self, message: str):
+        print(f"[Stream] {message}")
+        self._set_encoder_feedback("No conectado a Icecast", "danger")
+
+    def _on_stream_bytes(self, _chunk_size: int):
+        total = self.stream_client.total_bytes_sent
+        if total < 1024:
+            amount = f"{total} B"
+        elif total < 1024 * 1024:
+            amount = f"{total / 1024:.1f} KB"
+        else:
+            amount = f"{total / (1024 * 1024):.1f} MB"
+        text = f"Conectado · {amount} enviados"
+        for name in ("_lbl_enc_status", "_lbl_encoder_status"):
+            label = getattr(self, name, None)
+            if label is not None:
+                label.setText(text)
+                label.setStyleSheet(f"color:{T('success')};font-size:9pt;")
+
+    def _on_encoder_status(self, status: str):
+        print(f"[Encoder] {status}")
+        if hasattr(self, '_lbl_enc_status'):
+            self._lbl_enc_status.setText(status)
+        if hasattr(self, '_lbl_encoder_status'):
+            self._lbl_encoder_status.setText(status)
+
+    def _on_stream_connected(self):
+        self._led_encoder.set_on(True)
+        self._update_encoder_style(True)
+        if hasattr(self, '_lbl_enc_status'):
+            self._lbl_enc_status.setText("Conectado")
+            self._lbl_enc_status.setStyleSheet(f"color:{T('success')}; font-size:8pt;")
+        if hasattr(self, '_lbl_encoder_status'):
+            self._lbl_encoder_status.setText("Conectado")
+            self._lbl_encoder_status.setStyleSheet(f"color: {T('success')}; font-size: 9pt;")
+        if hasattr(self, '_lbl_stream_status'):
+            self._lbl_stream_status.setText("Streaming conectado")
+            self._lbl_stream_status.setStyleSheet(f"color: {T('text_primary')}; font-size: 10pt;")
+        if hasattr(self, '_dashboard_encoder_led'):
+            self._dashboard_encoder_led.set_on(True)
+        if hasattr(self, '_header_stream_led'):
+            self._header_stream_led.set_on(True)
+        print("[Stream] Conectado al servidor")
+
+    def _on_stream_disconnected(self):
+        self._led_encoder.set_on(False)
+        self._update_encoder_style(False)
+        if hasattr(self, '_lbl_enc_status'):
+            self._lbl_enc_status.setText("Detenido")
+            self._lbl_enc_status.setStyleSheet(f"color:{T('text_dim')}; font-size:8pt;")
+        if hasattr(self, '_lbl_encoder_status'):
+            self._lbl_encoder_status.setText("Desconectado")
+            self._lbl_encoder_status.setStyleSheet(f"color: {T('text_secondary')}; font-size: 9pt;")
+        if hasattr(self, '_lbl_stream_status'):
+            self._lbl_stream_status.setText("Encoder desconectado")
+            self._lbl_stream_status.setStyleSheet(f"color: {T('text_secondary')}; font-size: 10pt;")
+        if hasattr(self, '_dashboard_encoder_led'):
+            self._dashboard_encoder_led.set_on(False)
+        if hasattr(self, '_header_stream_led'):
+            self._header_stream_led.set_on(False)
+        print("[Stream] Desconectado del servidor")
+        self._led_encoder.set_on(False)
+        self._update_encoder_style(False)
+        if hasattr(self, '_lbl_enc_status'):
+            self._lbl_enc_status.setText("Desconectado")
+            self._lbl_enc_status.setStyleSheet(f"color:{T('text_dim')}; font-size:8pt;")
+        print("[Stream] Desconectado del servidor")
+
+    def _on_stream_status(self, status: str):
+        print(f"[Stream] {status}")
+        if hasattr(self, '_lbl_enc_status'):
+            self._lbl_enc_status.setText(status)
+
+    def _save_encoder_settings(self):
+        import json
+        try:
+            path = os.path.join(self._get_data_dir(), "encoder.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self._encoder_settings, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error guardando configuración encoder: {e}")
+
+    def _load_encoder_settings(self):
+        import json
+        path = os.path.join(self._get_data_dir(), "encoder.json")
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                self._encoder_settings = json.load(f)
+        except Exception as e:
+            print(f"Error cargando configuración encoder: {e}")
+
+    # ══════════════════════════════════════════════════════════════════════════════
+    #  RADIO XP DASHBOARD — implementación visual final
+    #  Estas definiciones sustituyen las primeras versiones del rediseño y
+    #  mantienen los paneles operativos originales en las vistas secundarias.
+    # ═════════════════════════════════════════════════════════════════════════════
+
+    def _setup_menus(self):
+        """Conserva las acciones históricas sin añadir chrome sobre la consola."""
+        mb = self.menuBar()
+        m_arch = mb.addMenu("Archivo")
+        m_arch.addAction(xp_icon("NewFolder.png"), "Nuevo proyecto", self._new_project)
+        m_arch.addAction(xp_icon("Open.png"), "Abrir proyecto…", self._open_project)
+        m_arch.addAction(xp_icon("Save.png"), "Guardar proyecto", self._save_project)
+        m_arch.addSeparator()
+        m_arch.addAction("Salir", self.close)
+        m_bib = mb.addMenu("Biblioteca")
+        m_bib.addAction(xp_icon("Add.png"), "Añadir audios…", self._add_audio_files)
+        m_bib.addAction(xp_icon("Open.png"), "Importar carpeta…", self._import_folder)
+        m_cfg = mb.addMenu("Configuración")
+        m_cfg.addAction(xp_icon("AudioDevices.png"), "Dispositivos de audio…", self._config_audio)
+        m_cfg.addAction(xp_icon("Chip.png"), "Configurar encoder…", self._config_encoder)
+        self._theme_action = m_cfg.addAction("Tema oscuro")
+        self._theme_action.setCheckable(True)
+        self._theme_action.setChecked(True)
+        self._theme_action.triggered.connect(self._toggle_theme)
+        mb.hide()
+
+    def _setup_statusbar(self):
+        # La referencia usa una única barra de estado integrada.
+        self._ensure_status_contract()
+        self.statusBar().hide()
+
+    def _ensure_status_contract(self):
+        """Crea siempre los receptores usados por los controladores antiguos."""
+        status_bar = self.statusBar()
+        if not hasattr(self, "_sb_led"):
+            self._sb_led = LEDIndicator(QColor(255,30,30), status_bar)
+            self._sb_led.hide()
+        for name, text in (
+            ("_sb_dtmf_lbl", "DTMF: inactivo"),
+            ("_sb_track_lbl", "Sin reproducción"),
+            ("_sb_state_lbl", "● Listo"),
+        ):
+            if not hasattr(self, name):
+                label = QLabel(text, status_bar)
+                label.hide()
+                setattr(self, name, label)
+
+    def _setup_ui(self):
+        self._ensure_status_contract()
+        if hasattr(self, "_dashboard_timer"):
+            self._dashboard_timer.stop()
+            self._dashboard_timer.deleteLater()
+        central = QWidget()
+        central.setObjectName("radioRoot")
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        body = QWidget()
+        body_lay = QHBoxLayout(body)
+        body_lay.setContentsMargins(0, 0, 0, 0)
+        body_lay.setSpacing(0)
+        body_lay.addWidget(self._build_navigation())
+        workspace = QWidget()
+        workspace_lay = QVBoxLayout(workspace)
+        workspace_lay.setContentsMargins(0, 0, 0, 0)
+        workspace_lay.setSpacing(0)
+        workspace_lay.addWidget(self._build_header())
+        self._content_area = QStackedWidget()
+        workspace_lay.addWidget(self._content_area, 1)
+        body_lay.addWidget(workspace, 1)
+        root.addWidget(body, 1)
+        root.addWidget(self._build_statusbar_bottom())
+
+        # Las vistas completas se construyen primero: crean todos los controles
+        # de la aplicación original. Emisión se construye al final para que sus
+        # indicadores sean los que reciben las actualizaciones en tiempo real.
+        self._page_pautas = self._build_pautas_page()
+        self._page_biblioteca = self._build_biblioteca_page()
+        self._page_dtmf = self._build_dtmf_page()
+        self._page_registro = self._build_registro_page()
+        self._page_dispositivos = self._build_dispositivos_page()
+        self._page_emision = self._build_emision_page()
+        for page in (self._page_emision, self._page_pautas, self._page_biblioteca,
+                     self._page_dtmf, self._page_registro, self._page_dispositivos):
+            self._content_area.addWidget(page)
+        self._content_area.setCurrentIndex(0)
+
+        self._dashboard_timer = QTimer(self)
+        self._dashboard_timer.timeout.connect(self._update_dashboard_clock)
+        self._dashboard_timer.start(1000)
+        self._update_dashboard_clock()
+
+    def _build_header(self) -> QWidget:
+        header = QWidget()
+        header.setObjectName("operationBar")
+        header.setFixedHeight(58)
+        header.setStyleSheet(f"""
+            QWidget#operationBar {{ background:{T('surface')}; border-bottom:1px solid {T('border')}; }}
+            QLabel {{ border:none; background:transparent; }}
+        """)
+        lay = QHBoxLayout(header)
+        lay.setContentsMargins(0, 0, 18, 0)
+        lay.setSpacing(0)
+
+        title_box = QWidget()
+        title_box.setFixedWidth(700)
+        title_lay = QHBoxLayout(title_box)
+        title_lay.setContentsMargins(14, 0, 0, 0)
+        title_lay.setSpacing(14)
+        divider = QFrame()
+        divider.setFixedSize(1, 24)
+        divider.setStyleSheet(f"background:{T('border')};")
+        title_lay.addWidget(divider)
+        station = QLabel("RADIO LOCAL")
+        station.setStyleSheet(f"font-size:20px; font-weight:700; color:{T('text_primary')};")
+        title_lay.addWidget(station)
+        context = QLabel("Control de emisión")
+        context.setStyleSheet(f"font-size:13px; color:#9FC9EC;")
+        title_lay.addWidget(context)
+        title_lay.addStretch()
+        lay.addWidget(title_box)
+        lay.addStretch()
+
+        self._btn_automatic = QPushButton("▶  AUTOMÁTICO")
+        self._btn_automatic.setCheckable(True)
+        self._btn_automatic.setFixedSize(126, 36)
+        self._btn_automatic.setStyleSheet(f"""
+            QPushButton {{ color:{T('success')}; background:#0D211B; border:1px solid #246845;
+                border-radius:5px; font-size:12px; font-weight:700; min-height:0; padding:0; }}
+            QPushButton:checked {{ background:#0A4A2C; border-color:{T('success')}; }}
+        """)
+        self._btn_automatic.toggled.connect(
+            lambda on: self.btn_dtmf_main.setChecked(on) if hasattr(self, "btn_dtmf_main") else None)
+        lay.addWidget(self._btn_automatic)
+        lay.addSpacing(20)
+
+        self._header_dtmf_led, self._lbl_header_dtmf = self._header_status("DTMF inactivo")
+        lay.addWidget(self._header_dtmf_led)
+        lay.addSpacing(8)
+        lay.addWidget(self._lbl_header_dtmf)
+        lay.addSpacing(22)
+        self._header_stream_led, self._lbl_stream_status = self._header_status("Streaming desconectado")
+        lay.addWidget(self._header_stream_led)
+        lay.addSpacing(8)
+        lay.addWidget(self._lbl_stream_status)
+        lay.addSpacing(26)
+
+        clock_box = QWidget()
+        clock_box.setFixedWidth(172)
+        clock_lay = QVBoxLayout(clock_box)
+        clock_lay.setContentsMargins(16, 3, 0, 2)
+        clock_lay.setSpacing(0)
+        self._header_clock_label = QLabel("--:--:--")
+        self._header_clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._header_clock_label.setStyleSheet(
+            f"font-size:28px; font-weight:700; color:{T('text_primary')};")
+        self._header_date = QLabel("")
+        self._header_date.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._header_date.setStyleSheet(f"font-size:12px; color:{T('text_secondary')};")
+        clock_lay.addWidget(self._header_clock_label)
+        clock_lay.addWidget(self._header_date)
+        lay.addWidget(clock_box)
+        return header
+
+    def _header_status(self, text: str):
+        led = LEDIndicator(QColor(T('success')))
+        led.set_on(False)
+        label = QLabel(text)
+        label.setStyleSheet(f"font-size:12px; color:{T('text_primary')};")
+        return led, label
+
+    def _build_navigation(self) -> QWidget:
+        nav = QWidget()
+        nav.setObjectName("sideNavigation")
+        nav.setFixedWidth(192)
+        nav_bg = T('surface') if _current_theme is THEME_LIGHT else "#121C27"
+        nav_hover = T('surface_raised') if _current_theme is THEME_LIGHT else "#1B2A38"
+        nav.setStyleSheet(f"""
+            QWidget#sideNavigation {{ background:{nav_bg}; border-right:1px solid {T('border')}; }}
+            QPushButton {{ border:none; border-radius:0; background:transparent; color:{T('text_secondary')};
+                text-align:left; padding-left:16px; min-height:40px; max-height:40px; font-size:14px; }}
+            QPushButton:hover {{ background:{nav_hover}; color:{T('text_primary')}; }}
+            QPushButton:checked {{ background:#0D67B2; border-left:3px solid #42AFFF; color:white; font-weight:600; }}
+        """)
+        lay = QVBoxLayout(nav)
+        lay.setContentsMargins(0, 10, 0, 10)
+        lay.setSpacing(2)
+        entries = [
+            ("Emisión", "Play.png"), ("Pautas locales", "Pauta.png"),
+            ("Biblioteca", "MyMusic.png"), ("Reglas DTMF", "Chip.png"),
+            ("Registro", "Alert.png"), ("Dispositivos", "AudioDevices.png"),
+        ]
+        self._nav_buttons = []
+        for idx, (text, icon_name) in enumerate(entries):
+            btn = QPushButton(f"   {text}")
+            btn.setIcon(xp_icon(icon_name))
+            btn.setIconSize(QSize(20, 20))
+            btn.setCheckable(True)
+            btn.setFixedHeight(52)
+            btn.clicked.connect(lambda checked=False, i=idx: self._navigate_to(i))
+            lay.addWidget(btn)
+            self._nav_buttons.append(btn)
+        self._nav_buttons[0].setChecked(True)
+        lay.addStretch()
+        return nav
+
+    def _navigate_to(self, index: int):
+        if not 0 <= index < len(self._nav_buttons):
+            return
+        for i, btn in enumerate(self._nav_buttons):
+            btn.setChecked(i == index)
+        self._content_area.setCurrentIndex(index)
+
+    def _panel(self, name: str) -> QWidget:
+        panel = QWidget()
+        panel.setObjectName(name)
+        panel.setStyleSheet(f"""
+            QWidget#{name} {{ background:{T('surface')}; border:1px solid {T('border')}; border-radius:5px; }}
+            QWidget#{name} QLabel {{ border:none; background:transparent; }}
+        """)
+        return panel
+
+    def _module_title(self, text: str, icon_name: str, size: int = 19) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(9)
+        icon = QLabel()
+        pix = xp_pixmap(icon_name, size)
+        if not pix.isNull():
+            icon.setPixmap(pix)
+        icon.setFixedWidth(size + 2)
+        row.addWidget(icon)
+        label = QLabel(text)
+        label.setStyleSheet(f"font-size:16px; font-weight:700; color:{T('accent_text')};")
+        row.addWidget(label)
+        row.addStretch()
+        return row
+
+    def _dashboard_table(self, headers: list[str], table_class=QTableWidget) -> QTableWidget:
+        table = table_class(0, len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        table.setAlternatingRowColors(True)
+        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setShowGrid(True)
+        table.verticalHeader().setVisible(False)
+        table.verticalHeader().setDefaultSectionSize(32)
+        table.setStyleSheet(f"""
+            QTableWidget {{ background:{T('bg_input')}; alternate-background-color:{T('surface')}; border:1px solid {T('border')};
+                border-radius:4px; gridline-color:{T('border')}; font-size:12px; }}
+            QTableWidget::item {{ padding:4px 8px; border:none; }}
+            QHeaderView::section {{ background:{T('surface_raised')}; color:{T('text_primary')};
+                border:0; border-right:1px solid {T('border')}; border-bottom:1px solid {T('border')};
+                padding:6px 8px; font-size:12px; font-weight:600; }}
+        """)
+        return table
+
+    def _build_emision_page(self) -> QWidget:
+        page = QWidget()
+        page.setStyleSheet(f"background:{T('background')};")
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(12, 10, 12, 10)
+        lay.setSpacing(10)
+
+        top = QHBoxLayout()
+        top.setSpacing(12)
+        top.addWidget(self._build_air_banner(), 68)
+        top.addWidget(self._build_next_event(), 30)
+        lay.addLayout(top)
+
+        columns = QHBoxLayout()
+        columns.setSpacing(12)
+        left = QVBoxLayout(); left.setSpacing(10)
+        right = QVBoxLayout(); right.setSpacing(10)
+        left.addWidget(self._build_pauta_panel(), 63)
+        left.addWidget(self._build_biblioteca_inline(), 34)
+        right.addWidget(self._build_dtmf_panel(), 38)
+        right.addWidget(self._build_output_panel(), 29)
+        right.addWidget(self._build_log_panel(), 33)
+        columns.addLayout(left, 68)
+        columns.addLayout(right, 32)
+        lay.addLayout(columns, 1)
+        return page
+
+    def _build_air_banner(self) -> QWidget:
+        panel = QWidget()
+        panel.setObjectName("airBanner")
+        panel.setFixedHeight(98)
+        air_bg = "#EAF7EF" if _current_theme is THEME_LIGHT else "#071B18"
+        air_border = "#76B98C" if _current_theme is THEME_LIGHT else "#286748"
+        panel.setStyleSheet(f"""
+            QWidget#airBanner {{ background:{air_bg}; border:1px solid {air_border}; border-radius:5px; }}
+            QWidget#airBanner QLabel {{ border:none; background:transparent; }}
+        """)
+        lay = QHBoxLayout(panel)
+        lay.setContentsMargins(12, 0, 16, 0)
+        lay.setSpacing(14)
+        icon_tile = QWidget(); icon_tile.setObjectName("airIcon")
+        icon_tile.setFixedSize(88, 82)
+        icon_tile.setStyleSheet(f"QWidget#airIcon{{background:#05A94E;border:1px solid {T('success')};border-radius:6px;}}")
+        icon_lay = QVBoxLayout(icon_tile); icon_lay.setContentsMargins(0,0,0,0)
+        icon = QLabel(); icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pix = xp_pixmap("AudioCD.png", 48)
+        if not pix.isNull(): icon.setPixmap(pix)
+        icon_lay.addWidget(icon)
+        lay.addWidget(icon_tile)
+        copy = QVBoxLayout(); copy.setSpacing(3)
+        self._lbl_air_title = QLabel("SIN FUENTE CONFIRMADA")
+        self._lbl_air_title.setStyleSheet(f"font-size:20px;font-weight:800;color:{T('success')};")
+        self._lbl_air_source = QLabel("Fuente: sin datos")
+        self._lbl_air_source.setStyleSheet(f"font-size:14px;color:{T('text_primary')};")
+        self._lbl_air_detail = QLabel("Configura o activa una fuente de programa")
+        self._lbl_air_detail.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};")
+        copy.addWidget(self._lbl_air_title); copy.addWidget(self._lbl_air_source); copy.addWidget(self._lbl_air_detail)
+        lay.addLayout(copy, 1)
+        separator = QFrame(); separator.setFixedWidth(1); separator.setStyleSheet(f"background:{air_border};")
+        lay.addWidget(separator)
+        meter = QWidget(); meter.setFixedWidth(390)
+        meter_lay = QVBoxLayout(meter); meter_lay.setContentsMargins(10,14,0,8); meter_lay.setSpacing(5)
+        self._vu_bars = []
+        for channel in ("L", "R"):
+            row = QHBoxLayout(); row.setSpacing(10)
+            lab = QLabel(channel); lab.setFixedWidth(15); lab.setStyleSheet("font-size:12px;font-weight:700;color:#DCE8F1;")
+            bar = VUBar(); bar.setFixedHeight(17)
+            row.addWidget(lab); row.addWidget(bar,1); meter_lay.addLayout(row); self._vu_bars.append(bar)
+        scale = QHBoxLayout(); scale.setContentsMargins(26,0,0,0)
+        for value in ("-60", "-40", "-20", "-10", "-6", "-3", "0 dB"):
+            lab = QLabel(value); lab.setAlignment(Qt.AlignmentFlag.AlignCenter); lab.setStyleSheet("font-size:10px;color:#9EB0BF;")
+            scale.addWidget(lab,1)
+        meter_lay.addLayout(scale)
+        lay.addWidget(meter)
+        return panel
+
+    def _build_next_event(self) -> QWidget:
+        panel = QWidget(); panel.setObjectName("nextEvent"); panel.setFixedHeight(98)
+        panel.setMinimumWidth(350)
+        next_bg = "#FFF8E7" if _current_theme is THEME_LIGHT else "#12130E"
+        next_border = "#D5A92F" if _current_theme is THEME_LIGHT else "#6B5620"
+        panel.setStyleSheet(f"""
+            QWidget#nextEvent {{ background:{next_bg};border:1px solid {next_border};border-radius:5px; }}
+            QWidget#nextEvent QLabel {{ border:none;background:transparent; }}
+        """)
+        lay = QHBoxLayout(panel); lay.setContentsMargins(12,8,12,8); lay.setSpacing(9)
+        icon = QLabel("◷"); icon.setFixedWidth(34); icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setStyleSheet(f"font-size:31px;color:{T('warning')};"); lay.addWidget(icon)
+        info = QVBoxLayout(); info.setSpacing(1)
+        title = QLabel("Próxima desconexión"); title.setStyleSheet(f"font-size:12px;font-weight:600;color:{T('warning')};")
+        self._lbl_next_time = QLabel("Esperando tono")
+        self._lbl_next_time.setMinimumWidth(0)
+        self._lbl_next_time.setStyleSheet(f"font-size:20px;font-weight:800;color:{T('warning')};")
+        info.addWidget(title); info.addWidget(self._lbl_next_time); lay.addLayout(info,1)
+        sep = QFrame(); sep.setFixedWidth(1); sep.setStyleSheet(f"background:{next_border};"); lay.addWidget(sep)
+        count_box = QWidget(); count_box.setFixedWidth(116)
+        count = QVBoxLayout(count_box); count.setContentsMargins(4,0,4,0); count.setSpacing(1)
+        lbl_en = QLabel("En"); lbl_en.setAlignment(Qt.AlignmentFlag.AlignCenter); lbl_en.setStyleSheet(f"font-size:12px;color:{T('warning')};")
+        self._lbl_countdown = QLabel("--:--"); self._lbl_countdown.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lbl_countdown.setStyleSheet(f"font-size:21px;font-weight:800;color:{T('warning')};")
+        count.addWidget(lbl_en); count.addWidget(self._lbl_countdown); lay.addWidget(count_box)
+        return panel
+
+    def _build_pauta_panel(self) -> QWidget:
+        panel = self._panel("pautaPanel")
+        lay = QVBoxLayout(panel); lay.setContentsMargins(12,10,12,10); lay.setSpacing(7)
+        head = self._module_title("Pauta local preparada", "Pauta.png", 22)
+        self._lbl_pauta_summary = QLabel("Sin audios preparados")
+        self._lbl_pauta_summary.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};")
+        head.insertWidget(2, self._lbl_pauta_summary)
+        lay.addLayout(head)
+        self._pauta_table = self._dashboard_table(
+            ["Orden", "Audio / Cliente", "Duración", "Inicio", "Estado"], AudioDropTable)
+        self._pauta_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._pauta_table.setColumnWidth(0,60); self._pauta_table.setColumnWidth(2,92)
+        self._pauta_table.setColumnWidth(3,106); self._pauta_table.setColumnWidth(4,145)
+        self._pauta_table.setMinimumHeight(145)
+        self._pauta_table.filesDropped.connect(self._add_paths_to_playlist)
+        self._pauta_table.setAccessibleDescription("Destino para soltar audios de la biblioteca")
+        lay.addWidget(self._pauta_table,1)
+        self._lbl_timeline = QLabel("Línea de tiempo de la pauta (00:00)")
+        self._lbl_timeline.setStyleSheet(f"font-size:12px;color:{T('text_primary')};")
+        lay.addWidget(self._lbl_timeline)
+        self._timeline_bar = QWidget(); self._timeline_bar.setFixedHeight(24)
+        self._timeline_layout = QHBoxLayout(self._timeline_bar); self._timeline_layout.setContentsMargins(0,0,0,0); self._timeline_layout.setSpacing(2)
+        lay.addWidget(self._timeline_bar)
+        self._timeline_labels = QWidget(); self._timeline_labels.setFixedHeight(22)
+        self._timeline_labels_layout = QHBoxLayout(self._timeline_labels); self._timeline_labels_layout.setContentsMargins(0,0,0,0); self._timeline_labels_layout.setSpacing(2)
+        lay.addWidget(self._timeline_labels)
+        self._lbl_return_mode = QLabel("Inicio manual o por DTMF · retorno según configuración")
+        self._lbl_return_mode.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};")
+        lay.addWidget(self._lbl_return_mode)
+        actions = QHBoxLayout(); actions.setSpacing(10)
+        self._btn_emitir_dashboard = QPushButton("▶   Emitir pauta local"); self._btn_emitir_dashboard.setCheckable(True)
+        self._btn_emitir_dashboard.setFixedHeight(48)
+        self._btn_emitir_dashboard.setStyleSheet(f"""
+            QPushButton{{background:#078B36;color:white;border:2px solid {T('success')};border-radius:5px;
+                font-size:15px;font-weight:700;min-height:0;padding:0 24px;}}
+            QPushButton:checked{{background:#075E2A;}}""")
+        self._btn_emitir_dashboard.toggled.connect(
+            lambda on: self.btn_pauta.setChecked(on) if hasattr(self,"btn_pauta") else self._toggle_pauta(on))
+        actions.addWidget(self._btn_emitir_dashboard)
+        chain = QPushButton("■   Volver a cadena"); chain.setFixedHeight(48)
+        chain.setStyleSheet(f"font-size:14px;font-weight:600;min-height:0;padding:0 24px;background:{T('surface_raised')};")
+        chain.clicked.connect(lambda: self.btn_signal.setChecked(True) if hasattr(self,"btn_signal") else self._toggle_signal(True))
+        actions.addWidget(chain); actions.addStretch()
+        preview = QPushButton("♫   Preescuchar\nSolo monitoreo"); preview.setFixedSize(160,48); preview.setEnabled(False)
+        preview.setToolTip("No hay una salida independiente de preescucha configurada")
+        preview.setStyleSheet("font-size:12px;min-height:0;")
+        actions.addWidget(preview); lay.addLayout(actions)
+        return panel
+
+    def _build_biblioteca_inline(self) -> QWidget:
+        panel = self._panel("libraryPanel")
+        lay = QVBoxLayout(panel); lay.setContentsMargins(12,9,12,9); lay.setSpacing(6)
+        title_row = self._module_title("Biblioteca de medios", "MyMusic.png", 21)
+        drag_hint = QLabel("Arrastra un audio hacia la pauta  ↑")
+        drag_hint.setStyleSheet(f"font-size:10px;color:{T('text_dim')};")
+        title_row.addWidget(drag_hint); lay.addLayout(title_row)
+        controls = QHBoxLayout(); controls.setSpacing(6)
+        self._dashboard_search = QLineEdit(); self._dashboard_search.setPlaceholderText("Buscar audio, cliente o campaña...")
+        self._dashboard_search.setFixedHeight(32); self._dashboard_search.textChanged.connect(self._filter_dashboard_library)
+        controls.addWidget(self._dashboard_search,1)
+        self._dashboard_filter = QComboBox(); self._dashboard_filter.addItems(["Todos", "Comerciales", "Identificaciones", "Música"])
+        self._dashboard_filter.setFixedSize(106,32); self._dashboard_filter.currentTextChanged.connect(lambda _: self._filter_dashboard_library(self._dashboard_search.text()))
+        controls.addWidget(self._dashboard_filter)
+        import_btn = QPushButton("↑  Importar audios"); import_btn.setFixedSize(150,34)
+        import_btn.setStyleSheet(f"background:#126EB4;color:white;border:1px solid #299BEF;min-height:0;font-weight:600;")
+        import_btn.clicked.connect(self._add_audio_files); controls.addWidget(import_btn)
+        lay.addLayout(controls)
+        self._dashboard_library_table = self._dashboard_table(
+            ["Nombre del archivo", "Duración", "Cliente / Campaña", "Categoría", "Acción", "Ruta"],
+            MediaLibraryTable)
+        self._dashboard_library_table.horizontalHeader().setSectionResizeMode(0,QHeaderView.ResizeMode.Stretch)
+        self._dashboard_library_table.horizontalHeader().setSectionResizeMode(2,QHeaderView.ResizeMode.Stretch)
+        self._dashboard_library_table.setColumnWidth(1,86); self._dashboard_library_table.setColumnWidth(3,150); self._dashboard_library_table.setColumnWidth(4,150)
+        self._dashboard_library_table.setColumnHidden(5,True)
+        self._dashboard_library_table.setAccessibleDescription("Origen de audios para arrastrar hacia la pauta")
+        lay.addWidget(self._dashboard_library_table,1)
+        return panel
+
+    def _build_dtmf_panel(self) -> QWidget:
+        panel = self._panel("dtmfPanel")
+        lay = QVBoxLayout(panel); lay.setContentsMargins(10,9,10,9); lay.setSpacing(6)
+        lay.addLayout(self._module_title("Control DTMF", "Chip.png", 20))
+        status = QWidget(); status.setObjectName("dtmfStatus")
+        dtmf_bg = "#EAF7EF" if _current_theme is THEME_LIGHT else "#09281F"
+        status.setStyleSheet(f"QWidget#dtmfStatus{{background:{dtmf_bg};border:1px solid #4B9A6B;border-radius:4px;}}")
+        status_lay = QHBoxLayout(status); status_lay.setContentsMargins(9,4,9,4); status_lay.setSpacing(8)
+        self._dashboard_dtmf_led = LEDIndicator(QColor(T('success'))); self._dashboard_dtmf_led.set_on(False)
+        self._lbl_dtmf_status = QLabel("Detector DTMF inactivo"); self._lbl_dtmf_status.setStyleSheet(f"font-size:13px;font-weight:700;color:{T('text_secondary')};")
+        status_lay.addWidget(self._dashboard_dtmf_led); status_lay.addWidget(self._lbl_dtmf_status,1); lay.addWidget(status)
+        last = QHBoxLayout(); last.addWidget(QLabel("Último código:"))
+        self._lbl_last_code = QLabel("—  ·  sin detecciones"); self._lbl_last_code.setStyleSheet(f"font-size:13px;color:{T('text_primary')};font-weight:600;")
+        last.addWidget(self._lbl_last_code,1); lay.addLayout(last)
+        self._dtmf_rules_table = self._dashboard_table(["Código DTMF", "Acción"])
+        self._dtmf_rules_table.verticalHeader().setDefaultSectionSize(27)
+        self._dtmf_rules_table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeMode.Stretch)
+        self._dtmf_rules_table.setColumnWidth(0,170); self._dtmf_rules_table.setFixedHeight(94)
+        lay.addWidget(self._dtmf_rules_table)
+        note = QLabel("ⓘ   La cadena continúa al aire hasta recibir el tono configurado.")
+        note.setWordWrap(True); note.setStyleSheet(f"background:{T('bg_input')};border:1px solid {T('border')};border-radius:4px;padding:6px;font-size:11px;")
+        lay.addWidget(note)
+        return panel
+
+    def _build_output_panel(self) -> QWidget:
+        panel = self._panel("outputPanel")
+        lay = QVBoxLayout(panel); lay.setContentsMargins(10,8,10,8); lay.setSpacing(5)
+        lay.addLayout(self._module_title("Salida y respaldo", "AudioDevices.png", 20))
+        row = QHBoxLayout(); row.setSpacing(10)
+        meters = QWidget(); meters.setObjectName("programMeters"); meters.setStyleSheet(f"QWidget#programMeters{{background:{T('bg_input')};border:1px solid {T('border')};border-radius:4px;}}")
+        ml = QVBoxLayout(meters); ml.setContentsMargins(7,5,7,4); ml.setSpacing(2)
+        program = QLabel("Programa (salida al aire)"); program.setStyleSheet("font-size:11px;"); ml.addWidget(program)
+        self._vu_output=[]
+        for ch in ("L","R"):
+            cr=QHBoxLayout(); lab=QLabel(ch); lab.setFixedWidth(12); lab.setStyleSheet("font-size:10px;")
+            vb=VUBar(); vb.setFixedHeight(14); cr.addWidget(lab); cr.addWidget(vb,1); ml.addLayout(cr); self._vu_output.append(vb)
+        row.addWidget(meters, 3)
+        encoder = QWidget(); encoder.setObjectName("encoderBox"); encoder.setStyleSheet(f"QWidget#encoderBox{{background:{T('bg_input')};border:1px solid {T('border')};border-radius:4px;}}")
+        el = QHBoxLayout(encoder); el.setContentsMargins(9,6,9,6)
+        self._dashboard_encoder_led=LEDIndicator(QColor(T('success'))); self._dashboard_encoder_led.set_on(False); el.addWidget(self._dashboard_encoder_led)
+        ec=QVBoxLayout(); ec.setSpacing(1); et=QLabel("Encoder"); et.setStyleSheet("font-size:12px;font-weight:700;")
+        self._lbl_encoder_status=QLabel("Desconectado"); self._lbl_encoder_status.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};")
+        self._lbl_encoder_codec=QLabel("—"); self._lbl_encoder_codec.setStyleSheet(f"font-size:10px;color:{T('text_secondary')};")
+        ec.addWidget(et); ec.addWidget(self._lbl_encoder_status); ec.addWidget(self._lbl_encoder_codec); el.addLayout(ec,1); row.addWidget(encoder,2)
+        lay.addLayout(row)
+        backup = QHBoxLayout(); self._dashboard_backup_led=LEDIndicator(QColor(T('success'))); self._dashboard_backup_led.set_on(False)
+        backup.addWidget(self._dashboard_backup_led); bc=QVBoxLayout(); bc.setSpacing(0)
+        bt=QLabel("Audio de respaldo"); bt.setStyleSheet("font-size:11px;")
+        self._lbl_backup_status=QLabel("Respaldo no configurado"); self._lbl_backup_status.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};")
+        bc.addWidget(bt); bc.addWidget(self._lbl_backup_status); backup.addLayout(bc,1)
+        cfg=QPushButton("⚙  Configurar audio"); cfg.setFixedHeight(34); cfg.setStyleSheet("font-size:11px;min-height:0;"); cfg.clicked.connect(lambda:self._navigate_to(5))
+        backup.addWidget(cfg); lay.addLayout(backup)
+        return panel
+
+    def _build_log_panel(self) -> QWidget:
+        panel = self._panel("logPanel")
+        lay=QVBoxLayout(panel); lay.setContentsMargins(10,8,10,8); lay.setSpacing(6)
+        title=self._module_title("Registro de emisión","Alert.png",20)
+        clear=QPushButton("Limpiar"); clear.setFixedSize(82,28); clear.setStyleSheet("min-height:0;font-size:11px;"); clear.clicked.connect(self._clear_log_view)
+        title.addWidget(clear); lay.addLayout(title)
+        self._log_table=self._dashboard_table(["Hora","Evento"]); self._log_table.setColumnWidth(0,82)
+        self._log_table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeMode.Stretch); lay.addWidget(self._log_table,1)
+        return panel
+
+    def _build_statusbar_bottom(self) -> QWidget:
+        bar=QWidget(); bar.setObjectName("dashboardStatus"); bar.setFixedHeight(32)
+        bar.setStyleSheet(f"QWidget#dashboardStatus{{background:{T('surface')};border-top:1px solid {T('border')};}} QWidget#dashboardStatus QLabel{{border:none;background:transparent;}}")
+        lay=QHBoxLayout(bar); lay.setContentsMargins(16,0,16,0); lay.setSpacing(16)
+
+        # Compatibilidad con los controladores operativos heredados. La barra de
+        # estado anterior exponía estos widgets y varios manejadores todavía los
+        # actualizan. El nuevo diseño presenta esa información en la cabecera y
+        # los paneles, por lo que mantenemos los receptores ocultos pero vivos.
+        self._sb_led=LEDIndicator(QColor(255,30,30),bar); self._sb_led.set_on(self._signal_on)
+        self._sb_dtmf_lbl=QLabel("DTMF: inactivo",bar)
+        self._sb_track_lbl=QLabel("Sin reproducción",bar)
+        self._sb_state_lbl=QLabel("● Listo",bar)
+        for compatibility_widget in (self._sb_led,self._sb_dtmf_lbl,self._sb_track_lbl,self._sb_state_lbl):
+            compatibility_widget.setVisible(False)
+
+        self._lbl_status_input=QLabel("Entrada: sin configurar"); self._lbl_status_output=QLabel("Salida: sistema predeterminado"); self._lbl_status_monitor=QLabel("Monitoreo: no configurado")
+        for lab in (self._lbl_status_input,self._lbl_status_output,self._lbl_status_monitor): lab.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(lab)
+        lay.addStretch(); self._lbl_status_backup=QLabel("●  Respaldo no configurado"); self._lbl_status_backup.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(self._lbl_status_backup)
+        version=QLabel("Radio XP Automator v1.0.0"); version.setStyleSheet(f"font-size:10px;color:{T('text_dim')};"); lay.addWidget(version)
+        return bar
+
+    def _secondary_page(self, title: str) -> tuple[QWidget, QVBoxLayout]:
+        page=QWidget(); page.setStyleSheet(f"background:{T('background')};")
+        lay=QVBoxLayout(page); lay.setContentsMargins(14,14,14,14); lay.setSpacing(10)
+        heading=QLabel(title); heading.setStyleSheet(f"font-size:19px;font-weight:700;color:{T('text_primary')};")
+        lay.addWidget(heading); return page,lay
+
+    def _build_pautas_page(self) -> QWidget:
+        page,lay=self._secondary_page("Pautas locales y fuentes")
+        subtitle=QLabel("Prepara la secuencia, revisa la salida y activa la fuente correcta desde un solo lugar.")
+        subtitle.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};")
+        lay.addWidget(subtitle)
+        tools=QHBoxLayout(); tools.setSpacing(7)
+        for label,fn in (("Nuevo",self._new_project),("Abrir…",self._open_project),("Guardar",self._save_project),("Añadir audio…",self._add_to_playlist)):
+            b=QPushButton(label); b.setStyleSheet("min-height:32px;max-height:32px;padding:0 14px;font-size:12px;")
+            b.clicked.connect(fn); tools.addWidget(b)
+        tools.addStretch(); lay.addLayout(tools)
+        row=QHBoxLayout(); row.setSpacing(12)
+        console=self._build_consola(); player=self._build_reproductor()
+        console.setMaximumHeight(570); player.setMaximumHeight(570)
+        console.setMinimumWidth(390); player.setMinimumWidth(620)
+        row.addWidget(console,36); row.addWidget(player,64)
+        lay.addLayout(row); lay.addStretch()
+        return page
+
+    def _build_biblioteca_page(self) -> QWidget:
+        page,lay=self._secondary_page("Biblioteca y pautas publicitarias")
+        subtitle=QLabel("Importa una vez, encuentra rápido y envía el audio seleccionado directamente a la pauta.")
+        subtitle.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};")
+        lay.addWidget(subtitle)
+        workspace=self._panel("mediaWorkspace")
+        work=QHBoxLayout(workspace); work.setContentsMargins(12,12,12,12); work.setSpacing(12)
+
+        media=QWidget(); ml=QVBoxLayout(media); ml.setContentsMargins(0,0,0,0); ml.setSpacing(8)
+        media_title=QLabel("Biblioteca de medios"); media_title.setStyleSheet(f"font-size:16px;font-weight:700;color:{T('accent_text')};")
+        ml.addWidget(media_title)
+        search=QHBoxLayout(); search.setSpacing(7)
+        self._search_edit=QLineEdit(); self._search_edit.setPlaceholderText("Buscar canción, artista o álbum…")
+        self._search_edit.setFixedHeight(34); self._search_edit.textChanged.connect(self._filter_library); search.addWidget(self._search_edit,1)
+        self._filter_combo=QComboBox(); self._filter_combo.addItems(["Todos","Artista","Título","Álbum"]); self._filter_combo.setFixedSize(120,34)
+        search.addWidget(self._filter_combo); ml.addLayout(search)
+        actions=QHBoxLayout(); actions.setSpacing(6)
+        for icon,label,fn in (("Add.png","Añadir",self._add_audio_files),("Open.png","Importar carpeta",self._import_folder),
+                              ("NetworkandInternet.png","URL streaming",self._add_streaming_url),("Delete.png","Eliminar",self._del_from_library),
+                              ("Playlist.png","Añadir a pauta",self._add_lib_to_playlist)):
+            btn=QPushButton(label); btn.setIcon(xp_icon(icon)); btn.setIconSize(QSize(16,16)); btn.setFixedHeight(34)
+            btn.setStyleSheet("min-height:30px;max-height:30px;padding:0 10px;font-size:11px;"); btn.clicked.connect(fn); actions.addWidget(btn)
+        actions.addStretch(); ml.addLayout(actions)
+        self._table_library=MediaLibraryTable(0,6)
+        self._table_library.setHorizontalHeaderLabels(["Artista","Título","Álbum","Duración","Año","Ruta"])
+        self._table_library.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self._table_library.horizontalHeader().setSectionResizeMode(5,QHeaderView.ResizeMode.ResizeToContents)
+        self._table_library.setAlternatingRowColors(True); self._table_library.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table_library.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers); self._table_library.verticalHeader().setVisible(False)
+        self._table_library.doubleClicked.connect(self._library_double_click)
+        self._table_library.setAccessibleDescription("Origen de audios para arrastrar hacia una pauta")
+        ml.addWidget(self._table_library,1)
+        self._lbl_lib_count=QLabel("0 archivos · arrastra a la pauta o usa doble clic")
+        self._lbl_lib_count.setStyleSheet(f"font-size:11px;color:{T('text_dim')};"); ml.addWidget(self._lbl_lib_count)
+
+        campaigns=QWidget(); cl=QVBoxLayout(campaigns); cl.setContentsMargins(0,0,0,0); cl.setSpacing(8)
+        campaign_title=QLabel("Pautas publicitarias"); campaign_title.setStyleSheet(f"font-size:16px;font-weight:700;color:{T('accent_text')};")
+        cl.addWidget(campaign_title)
+        campaign_actions=QHBoxLayout(); campaign_actions.setSpacing(6)
+        for icon,label,fn in (("Add.png","Nueva pauta",self._new_pauta),("Delete.png","Eliminar",self._del_pauta)):
+            btn=QPushButton(label); btn.setIcon(xp_icon(icon)); btn.setIconSize(QSize(16,16)); btn.setFixedHeight(34)
+            btn.setStyleSheet("min-height:30px;max-height:30px;padding:0 12px;font-size:11px;"); btn.clicked.connect(fn); campaign_actions.addWidget(btn)
+        campaign_actions.addStretch(); cl.addLayout(campaign_actions)
+        self._table_pautas=AudioDropTable(0,7)
+        self._table_pautas.setHorizontalHeaderLabels(["Archivo","Cliente","Spot","Duración","Horario","Días","Ruta"])
+        self._table_pautas.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self._table_pautas.setAlternatingRowColors(True); self._table_pautas.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table_pautas.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked); self._table_pautas.verticalHeader().setVisible(False)
+        self._table_pautas.setColumnHidden(6,True)
+        self._table_pautas.filesDropped.connect(self._add_paths_to_pautas)
+        self._table_pautas.itemChanged.connect(self._on_pauta_item_changed)
+        self._table_pautas.setAccessibleDescription("Destino para soltar audios de la biblioteca")
+        cl.addWidget(self._table_pautas,1)
+        campaign_hint=QLabel("Arrastra audios desde la biblioteca · doble clic para editar · guardado automático")
+        campaign_hint.setStyleSheet(f"font-size:11px;color:{T('text_dim')};"); cl.addWidget(campaign_hint)
+
+        split=QSplitter(Qt.Orientation.Horizontal); split.addWidget(media); split.addWidget(campaigns); split.setSizes([900,430])
+        work.addWidget(split,1); lay.addWidget(workspace,1)
+        return page
+
+    def _build_dtmf_page(self) -> QWidget:
+        page,lay=self._secondary_page("Reglas y detector DTMF")
+        subtitle=QLabel("Configura la entrada, valida las secuencias y prueba tonos sin abandonar el contexto operativo.")
+        subtitle.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};"); lay.addWidget(subtitle)
+        row=QHBoxLayout(); row.setSpacing(12)
+        config=self._panel("dtmfConfiguration"); cfg=QVBoxLayout(config); cfg.setContentsMargins(12,10,12,12); cfg.setSpacing(8)
+        title=QLabel("Configuración DTMF"); title.setStyleSheet(f"font-size:16px;font-weight:700;color:{T('accent_text')};"); cfg.addWidget(title)
+        tabs=QTabWidget(); tabs.setMinimumHeight(390); tabs.setMaximumHeight(520)
+
+        devices=QWidget(); dg=QGridLayout(devices); dg.setContentsMargins(14,16,14,14); dg.setHorizontalSpacing(14); dg.setVerticalSpacing(11)
+        device_rows=[("Entrada de tonos", "_dtmf_dev_combo"),("Salida de señal principal", "_sd_out_dev_combo"),
+                     ("Salida del reproductor", "_out_dev_combo"),("Salida del reproductor remoto", "_remote_out_dev_combo")]
+        for r,(label,attr) in enumerate(device_rows):
+            lab=QLabel(label); lab.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};"); combo=QComboBox(); combo.setFixedHeight(34)
+            setattr(self,attr,combo); dg.addWidget(lab,r,0); dg.addWidget(combo,r,1)
+        self._out_dev_combo.currentIndexChanged.connect(self._on_out_dev_changed)
+        self._remote_out_dev_combo.currentIndexChanged.connect(self._on_remote_out_dev_changed)
+        refresh=QPushButton("Actualizar dispositivos"); refresh.setIcon(xp_icon("Refresh.png")); refresh.setFixedHeight(34)
+        refresh.setStyleSheet("min-height:32px;max-height:32px;padding:0 14px;"); refresh.clicked.connect(self._refresh_devices); dg.addWidget(refresh,4,1,alignment=Qt.AlignmentFlag.AlignRight)
+        dg.setColumnStretch(1,1); dg.setRowStretch(5,1); tabs.addTab(devices,"Dispositivos")
+
+        params=QWidget(); pg=QGridLayout(params); pg.setContentsMargins(14,16,14,14); pg.setHorizontalSpacing(14); pg.setVerticalSpacing(8)
+        self._dtmf_freq_lo=QSpinBox(); self._dtmf_freq_lo.setRange(300,4000); self._dtmf_freq_lo.setValue(697)
+        self._dtmf_freq_hi=QSpinBox(); self._dtmf_freq_hi.setRange(300,4000); self._dtmf_freq_hi.setValue(1633)
+        self._dtmf_dur=QSpinBox(); self._dtmf_dur.setRange(10,500); self._dtmf_dur.setValue(40)
+        self._dtmf_thresh=QDoubleSpinBox(); self._dtmf_thresh.setRange(-80,0); self._dtmf_thresh.setValue(-30); self._dtmf_thresh.setSuffix(" dB")
+        self._dtmf_tol=QSpinBox(); self._dtmf_tol.setRange(1,100); self._dtmf_tol.setValue(20)
+        self._dtmf_seq_play=QLineEdit("420590"); self._dtmf_seq_stop=QLineEdit("609700")
+        param_rows=[("Frecuencia inicial (Hz)",self._dtmf_freq_lo),("Frecuencia final (Hz)",self._dtmf_freq_hi),
+                    ("Duración mínima (ms)",self._dtmf_dur),("Umbral de ruido",self._dtmf_thresh),
+                    ("Tolerancia (±Hz)",self._dtmf_tol),("Secuencia para iniciar pauta",self._dtmf_seq_play),
+                    ("Secuencia para volver",self._dtmf_seq_stop)]
+        for r,(label,widget) in enumerate(param_rows):
+            lab=QLabel(label); lab.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};"); widget.setFixedHeight(32); pg.addWidget(lab,r,0); pg.addWidget(widget,r,1)
+        apply_btn=QPushButton("Aplicar parámetros"); apply_btn.setIcon(xp_icon("Apply.png")); apply_btn.setFixedHeight(34)
+        apply_btn.setStyleSheet("min-height:32px;max-height:32px;padding:0 14px;"); apply_btn.clicked.connect(self._apply_dtmf_params); pg.addWidget(apply_btn,7,1,alignment=Qt.AlignmentFlag.AlignRight)
+        pg.setColumnStretch(1,1); pg.setRowStretch(8,1); tabs.addTab(params,"Parámetros")
+
+        test=QWidget(); tg=QGridLayout(test); tg.setContentsMargins(14,16,14,14); tg.setHorizontalSpacing(14); tg.setVerticalSpacing(10)
+        self._test_tone_cb=QComboBox()
+        for digit,freqs in (("1",(697,1209)),("2",(697,1336)),("3",(697,1477)),("4",(770,1209)),("5",(770,1336)),("6",(770,1477)),("7",(852,1209)),("8",(852,1336)),("9",(852,1477)),("*",(941,1209)),("0",(941,1336)),("#",(941,1477))):
+            self._test_tone_cb.addItem(f"{digit}  ·  {freqs[0]}/{freqs[1]} Hz",freqs)
+        self._test_dur_spin=QSpinBox(); self._test_dur_spin.setRange(50,2000); self._test_dur_spin.setValue(250); self._test_dur_spin.setSuffix(" ms")
+        tg.addWidget(QLabel("Tono"),0,0); tg.addWidget(self._test_tone_cb,0,1); tg.addWidget(QLabel("Duración"),1,0); tg.addWidget(self._test_dur_spin,1,1)
+        send=QPushButton("Enviar tono de prueba"); send.setIcon(xp_icon("Send.png")); send.setFixedHeight(36); send.clicked.connect(self._send_test_tone)
+        tg.addWidget(send,2,1,alignment=Qt.AlignmentFlag.AlignRight); tg.setColumnStretch(1,1); tg.setRowStretch(3,1); tabs.addTab(test,"Prueba")
+        cfg.addWidget(tabs); cfg.addStretch(); row.addWidget(config,72)
+
+        state=self._panel("dtmfStateCard"); sl=QVBoxLayout(state); sl.setContentsMargins(16,14,16,16); sl.setSpacing(10)
+        st=QLabel("Estado del detector"); st.setStyleSheet(f"font-size:16px;font-weight:700;color:{T('accent_text')};"); sl.addWidget(st)
+        self._lbl_dtmf_state=QLabel("Inactivo"); self._lbl_dtmf_state.setStyleSheet(f"font-size:13px;color:{T('text_secondary')};"); sl.addWidget(self._lbl_dtmf_state)
+        self._btn_dtmf_secondary=QPushButton("Activar detector DTMF"); self._btn_dtmf_secondary.setCheckable(True); self._btn_dtmf_secondary.setFixedHeight(42)
+        self._btn_dtmf_secondary.setStyleSheet(f"QPushButton{{min-height:38px;max-height:38px;padding:0 12px;font-weight:700;border-color:#23784C;}} QPushButton:checked{{background:#08763A;color:white;border-color:{T('success')};}}")
+        self._btn_dtmf_secondary.toggled.connect(lambda on:self.btn_dtmf_main.setChecked(on)); self.btn_dtmf_main.toggled.connect(self._btn_dtmf_secondary.setChecked)
+        sl.addWidget(self._btn_dtmf_secondary)
+        sep=QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setStyleSheet(f"color:{T('border')};"); sl.addWidget(sep)
+        last=QLabel("Las secuencias activas aparecen también en el resumen de Emisión."); last.setWordWrap(True); last.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};"); sl.addWidget(last)
+        sl.addStretch(); row.addWidget(state,28)
+        lay.addLayout(row); lay.addStretch(); self._refresh_devices()
+        return page
+
+    def _build_registro_page(self) -> QWidget:
+        page,lay=self._secondary_page("Registro")
+        subtitle=QLabel("Consulta los eventos recientes sin perder de vista el resultado de cada operación.")
+        subtitle.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};"); lay.addWidget(subtitle)
+        card=self._panel("historyCard"); cl=QVBoxLayout(card); cl.setContentsMargins(12,10,12,12); cl.setSpacing(8)
+        empty=QLabel("Aún no hay eventos en esta sesión")
+        empty.setAlignment(Qt.AlignmentFlag.AlignCenter); empty.setStyleSheet(f"font-size:15px;font-weight:600;color:{T('text_secondary')};")
+        detail=QLabel("Las detecciones DTMF, cambios de fuente y resultados del encoder aparecerán aquí.")
+        detail.setAlignment(Qt.AlignmentFlag.AlignCenter); detail.setWordWrap(True); detail.setStyleSheet(f"font-size:12px;color:{T('text_dim')};")
+        cl.addStretch(); cl.addWidget(empty); cl.addWidget(detail); cl.addStretch(); lay.addWidget(card,1); return page
+
+    def _build_dispositivos_page(self) -> QWidget:
+        page,lay=self._secondary_page("Dispositivos, micrófono y streaming")
+        subtitle=QLabel("Controla captura y transmisión por separado; el estado al aire no depende del estado del encoder.")
+        subtitle.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};"); lay.addWidget(subtitle)
+        cards=QHBoxLayout(); cards.setSpacing(12)
+
+        encoder=self._panel("encoderSettingsCard"); el=QVBoxLayout(encoder); el.setContentsMargins(16,14,16,16); el.setSpacing(10)
+        et=QLabel("Encoder y streaming"); et.setStyleSheet(f"font-size:16px;font-weight:700;color:{T('accent_text')};"); el.addWidget(et)
+        status=QHBoxLayout(); self._lbl_enc_status=QLabel("Desconectado"); self._lbl_enc_status.setStyleSheet(f"font-size:13px;color:{T('text_secondary')};")
+        status.addWidget(self._lbl_enc_status); status.addStretch(); self.btn_encoder=QPushButton("OFF"); self.btn_encoder.setCheckable(True); self.btn_encoder.setFixedSize(88,40)
+        self.btn_encoder.toggled.connect(self._toggle_encoder); status.addWidget(self.btn_encoder); el.addLayout(status)
+        self._lbl_enc_info=QLabel("Configura servidor, codec y bitrate antes de iniciar."); self._lbl_enc_info.setWordWrap(True); self._lbl_enc_info.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};")
+        el.addWidget(self._lbl_enc_info); config=QPushButton("Configurar encoder…"); config.setIcon(xp_icon("Settings.png")); config.setFixedHeight(38)
+        config.setStyleSheet("min-height:36px;max-height:36px;padding:0 12px;"); config.clicked.connect(self._config_encoder); el.addWidget(config); el.addStretch(); self._update_encoder_style(False)
+
+        microphone=self._panel("microphoneCard"); ml=QVBoxLayout(microphone); ml.setContentsMargins(16,14,16,16); ml.setSpacing(10)
+        mt=QLabel("Micrófono y monitoreo"); mt.setStyleSheet(f"font-size:16px;font-weight:700;color:{T('accent_text')};"); ml.addWidget(mt)
+        mic_status=QHBoxLayout(); mic_status.addWidget(QLabel("Captura de micrófono")); mic_status.addStretch(); self.btn_mic=QPushButton("OFF"); self.btn_mic.setCheckable(True); self.btn_mic.setFixedSize(88,40)
+        self.btn_mic.toggled.connect(self._toggle_mic); mic_status.addWidget(self.btn_mic); ml.addLayout(mic_status)
+        source_label=QLabel("Fuente de entrada"); source_label.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); ml.addWidget(source_label)
+        self._mic_src_combo=QComboBox(); self._mic_src_combo.setFixedHeight(34); ml.addWidget(self._mic_src_combo); self._populate_mic_sources()
+        volume_label=QLabel("Volumen de micrófono"); volume_label.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); ml.addWidget(volume_label)
+        volume=QHBoxLayout(); mic_slider=QSlider(Qt.Orientation.Horizontal); mic_slider.setRange(0,100); mic_slider.setValue(80); volume.addWidget(mic_slider,1)
+        mic_value=QLabel("80%"); mic_value.setFixedWidth(42); mic_value.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter); volume.addWidget(mic_value)
+        mic_slider.valueChanged.connect(lambda v: (mic_value.setText(f"{v}%"),self.passthrough.set_volume(v/100))); ml.addLayout(volume); ml.addStretch()
+        self._vol_sliders={"mic":mic_slider}
+        cards.addWidget(encoder,1); cards.addWidget(microphone,1); lay.addLayout(cards)
+
+        routing=self._panel("routingCard"); rl=QHBoxLayout(routing); rl.setContentsMargins(16,12,16,12); rl.setSpacing(12)
+        routing_copy=QVBoxLayout(); rt=QLabel("Ruteo de audio"); rt.setStyleSheet(f"font-size:14px;font-weight:700;color:{T('text_primary')};")
+        rd=QLabel("Selecciona entrada DTMF y salidas de programa en Reglas DTMF → Dispositivos."); rd.setStyleSheet(f"font-size:12px;color:{T('text_secondary')};")
+        routing_copy.addWidget(rt); routing_copy.addWidget(rd); rl.addLayout(routing_copy,1)
+        go=QPushButton("Abrir dispositivos DTMF"); go.setStyleSheet("min-height:34px;max-height:34px;padding:0 12px;"); go.clicked.connect(lambda:self._navigate_to(3)); rl.addWidget(go)
+        lay.addWidget(routing); lay.addStretch(); return page
+
+    def _table_snapshot(self, table: QTableWidget) -> list[list[str]]:
+        if table is None:
+            return []
+        return [[table.item(r,c).text() if table.item(r,c) else ""
+                 for c in range(table.columnCount())]
+                for r in range(table.rowCount())]
+
+    def _restore_table_snapshot(self, table: QTableWidget, rows: list[list[str]]):
+        previous=table.blockSignals(True)
+        try:
+            table.setRowCount(0)
+            for values in rows:
+                row=table.rowCount(); table.insertRow(row)
+                for col,value in enumerate(values[:table.columnCount()]):
+                    table.setItem(row,col,QTableWidgetItem(value))
+        finally:
+            table.blockSignals(previous)
+
+    def _toggle_theme(self):
+        """Cambia de tema reconstruyendo sólo widgets, nunca motores ni datos."""
+        dark=self._theme_action.isChecked()
+        current_page=self._content_area.currentIndex() if hasattr(self,"_content_area") else 0
+        library_rows=self._table_snapshot(getattr(self,"_table_library",None))
+        pauta_rows=self._table_snapshot(getattr(self,"_table_pautas",None))
+        remote_url=self._remote_url_edit.text() if hasattr(self,"_remote_url_edit") else ""
+        device_texts={name:getattr(self,name).currentText() for name in
+                      ("_dtmf_dev_combo","_sd_out_dev_combo","_out_dev_combo","_remote_out_dev_combo","_mic_src_combo")
+                      if hasattr(self,name)}
+        dtmf_values={
+            "lo": self._dtmf_freq_lo.value() if hasattr(self,"_dtmf_freq_lo") else 697,
+            "hi": self._dtmf_freq_hi.value() if hasattr(self,"_dtmf_freq_hi") else 1633,
+            "dur": self._dtmf_dur.value() if hasattr(self,"_dtmf_dur") else 40,
+            "threshold": self._dtmf_thresh.value() if hasattr(self,"_dtmf_thresh") else -30,
+            "tolerance": self._dtmf_tol.value() if hasattr(self,"_dtmf_tol") else 20,
+            "play": self._dtmf_seq_play.text() if hasattr(self,"_dtmf_seq_play") else "420590",
+            "stop": self._dtmf_seq_stop.text() if hasattr(self,"_dtmf_seq_stop") else "609700",
+        }
+
+        set_theme(dark)
+        QApplication.instance().setStyleSheet(generate_qss())
+        self._setup_ui()
+
+        self._restore_table_snapshot(self._table_library,library_rows)
+        self._restore_table_snapshot(self._table_pautas,pauta_rows)
+        self._lbl_lib_count.setText(f"{self._table_library.rowCount()} archivos · doble clic para añadir a la pauta")
+        for track in self.engine.playlist:
+            self._add_playlist_row(track)
+
+        self._dtmf_freq_lo.setValue(dtmf_values["lo"]); self._dtmf_freq_hi.setValue(dtmf_values["hi"])
+        self._dtmf_dur.setValue(dtmf_values["dur"]); self._dtmf_thresh.setValue(dtmf_values["threshold"])
+        self._dtmf_tol.setValue(dtmf_values["tolerance"]); self._dtmf_seq_play.setText(dtmf_values["play"])
+        self._dtmf_seq_stop.setText(dtmf_values["stop"])
+        if remote_url:
+            self._remote_url_edit.setText(remote_url)
+        for name,text in device_texts.items():
+            combo=getattr(self,name,None)
+            if combo is not None:
+                index=combo.findText(text)
+                if index >= 0: combo.setCurrentIndex(index)
+
+        for widget,state in ((getattr(self,"btn_signal",None),self._signal_on),
+                             (getattr(self,"btn_pauta",None),self._pauta_on),
+                             (getattr(self,"btn_dtmf_main",None),self._dtmf_on),
+                             (getattr(self,"btn_remote",None),self._remote_on),
+                             (getattr(self,"btn_encoder",None),self._encoder_on),
+                             (getattr(self,"btn_mic",None),self._mic_on),
+                             (getattr(self,"_btn_automatic",None),self._dtmf_on)):
+            if widget is not None:
+                previous=widget.blockSignals(True); widget.setChecked(state); widget.blockSignals(previous)
+        self._update_encoder_style(self._encoder_on); self._update_mic_style(self._mic_on)
+        self._sync_dashboard(); self._navigate_to(current_page)
+        self._on_dtmf_status("Escuchando entrada de cadena" if self._dtmf_on else "Detector DTMF inactivo")
+        self._on_playback_state(self.engine.state)
+
+    def _update_dashboard_clock(self):
+        now=datetime.now()
+        if hasattr(self,"_header_clock_label"):
+            self._header_clock_label.setText(now.strftime("%H:%M:%S"))
+            dias=("lun","mar","mié","jue","vie","sáb","dom")
+            meses=("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic")
+            self._header_date.setText(f"{dias[now.weekday()].capitalize()} {now.day} de {meses[now.month-1]}. de {now.year}")
+
+    def _set_dashboard_source(self, title: str, source: str, detail: str):
+        if hasattr(self, "_lbl_air_title"):
+            self._lbl_air_title.setText(title)
+            self._lbl_air_source.setText(source)
+            self._lbl_air_detail.setText(detail)
+
+    def _clear_layout_widgets(self, layout):
+        while layout.count():
+            item=layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+            elif item.layout(): self._clear_layout_widgets(item.layout())
+
+    def _duration_seconds(self, value: str) -> int:
+        try:
+            parts=[int(float(p)) for p in str(value).split(":")]
+            return parts[-1] + (parts[-2]*60 if len(parts)>1 else 0) + (parts[-3]*3600 if len(parts)>2 else 0)
+        except (ValueError,TypeError):
+            return 0
+
+    def _sync_dashboard(self):
+        if not hasattr(self,"_pauta_table"):
+            return
+        playlist=list(self.engine.playlist)
+        self._pauta_table.setRowCount(0)
+        total=0
+        for i,track in enumerate(playlist):
+            row=self._pauta_table.rowCount(); self._pauta_table.insertRow(row)
+            total += self._duration_seconds(track.get("duration","0:00"))
+            values=(f"{i+1:02d}", track.get("title") or Path(track.get("path","")).stem,
+                    track.get("duration","0:00"), "—", "Preparado")
+            for col,value in enumerate(values):
+                item=QTableWidgetItem(str(value)); self._pauta_table.setItem(row,col,item)
+        mins,secs=divmod(total,60)
+        self._lbl_pauta_summary.setText(f"{len(playlist)} audios · Total {mins:02d}:{secs:02d}" if playlist else "Sin audios preparados")
+        self._lbl_timeline.setText(f"Línea de tiempo de la pauta ({mins:02d}:{secs:02d})")
+        self._clear_layout_widgets(self._timeline_layout); self._clear_layout_widgets(self._timeline_labels_layout)
+        colors=("#36BDF2","#46D879","#F5B942","#9A63D4")
+        if playlist:
+            for i,track in enumerate(playlist):
+                duration=max(1,self._duration_seconds(track.get("duration","0:00")))
+                seg=QLabel(track.get("duration","0:00")); seg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                seg.setStyleSheet(f"background:{colors[i%len(colors)]};color:#071019;font-size:10px;font-weight:700;border-radius:2px;")
+                self._timeline_layout.addWidget(seg,duration)
+                name=QLabel(track.get("title") or "Audio"); name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                name.setStyleSheet(f"font-size:10px;color:{T('text_secondary')};"); self._timeline_labels_layout.addWidget(name,duration)
+        else:
+            empty=QLabel("Sin audios"); empty.setAlignment(Qt.AlignmentFlag.AlignCenter); empty.setStyleSheet(f"background:{T('surface_raised')};color:{T('text_dim')};border-radius:2px;")
+            self._timeline_layout.addWidget(empty)
+
+        if hasattr(self,"_dashboard_library_table") and hasattr(self,"_table_library"):
+            self._dashboard_library_table.setRowCount(0)
+            for r in range(self._table_library.rowCount()):
+                title=self._table_library.item(r,1).text() if self._table_library.item(r,1) else ""
+                duration=self._table_library.item(r,3).text() if self._table_library.item(r,3) else ""
+                artist=self._table_library.item(r,0).text() if self._table_library.item(r,0) else ""
+                path=self._table_library.item(r,5).text() if self._table_library.item(r,5) else ""
+                row=self._dashboard_library_table.rowCount(); self._dashboard_library_table.insertRow(row)
+                for c,value in enumerate((Path(path).name or title,duration,artist,"Audio","",path)):
+                    self._dashboard_library_table.setItem(row,c,QTableWidgetItem(value))
+                add=QPushButton("Añadir a pauta"); add.setFixedHeight(24); add.setStyleSheet("font-size:10px;min-height:0;padding:0 8px;")
+                add.clicked.connect(lambda checked=False,p=path:self._dashboard_add_path(p))
+                self._dashboard_library_table.setCellWidget(row,4,add)
+        self._sync_dashboard_dtmf_rules()
+        self._sync_dashboard_status()
+
+    def _dashboard_add_path(self, path: str):
+        info=self.engine.add_file(path)
+        if info:
+            self._add_playlist_row(info)
+            self._save_playlist_to_disk()
+
+    def _sync_dashboard_dtmf_rules(self):
+        if not hasattr(self,"_dtmf_rules_table"):
+            return
+        play=self._dtmf_seq_play.text().strip() if hasattr(self,"_dtmf_seq_play") else ""
+        stop=self._dtmf_seq_stop.text().strip() if hasattr(self,"_dtmf_seq_stop") else ""
+        rules=[(play,"Iniciar pauta local"),(stop,"Volver a cadena")]
+        rules=[r for r in rules if r[0]]
+        self._dtmf_rules_table.setRowCount(len(rules))
+        for row,(code,action) in enumerate(rules):
+            self._dtmf_rules_table.setItem(row,0,QTableWidgetItem(code)); self._dtmf_rules_table.setItem(row,1,QTableWidgetItem(action))
+
+    def _sync_dashboard_status(self):
+        if hasattr(self,"_lbl_encoder_codec"):
+            codec=str(self._encoder_settings.get("codec","")).upper()
+            bitrate=self._encoder_settings.get("bitrate")
+            self._lbl_encoder_codec.setText(f"{codec} · {bitrate} kbps" if codec and bitrate else "Sin configurar")
+        if hasattr(self,"_lbl_status_input") and hasattr(self,"_dtmf_dev_combo"):
+            self._lbl_status_input.setText(f"Entrada: {self._dtmf_dev_combo.currentText()}")
+        if hasattr(self,"_lbl_status_output") and hasattr(self,"_out_dev_combo"):
+            self._lbl_status_output.setText(f"Salida: {self._out_dev_combo.currentText()}")
+
+    def _filter_dashboard_library(self, text: str):
+        if not hasattr(self,"_dashboard_library_table"):
+            return
+        needle=text.strip().lower(); category=self._dashboard_filter.currentText() if hasattr(self,"_dashboard_filter") else "Todos"
+        for row in range(self._dashboard_library_table.rowCount()):
+            hay=" ".join(self._dashboard_library_table.item(row,c).text().lower() for c in range(4) if self._dashboard_library_table.item(row,c))
+            category_ok=category=="Todos" or category.lower().rstrip("s") in hay
+            self._dashboard_library_table.setRowHidden(row, bool(needle and needle not in hay) or not category_ok)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  PUNTO DE ENTRADA
 # ══════════════════════════════════════════════════════════════════════════════
+def application_exception_hook(exc_type, value, tb):
+    """Informa errores de slots Qt sin provocar el cierre total de la emisora."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, value, tb)
+        return
+    detail = "".join(traceback.format_exception(exc_type, value, tb))
+    print(detail, file=sys.stderr, flush=True)
+    app = QApplication.instance()
+    if app is not None:
+        message = f"{exc_type.__name__}: {value}"
+        QTimer.singleShot(0, lambda: QMessageBox.critical(
+            app.activeWindow(), "Error recuperable", message))
+
+
 if __name__ == "__main__":
+    sys.excepthook = application_exception_hook
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 

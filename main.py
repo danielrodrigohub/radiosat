@@ -5854,10 +5854,15 @@ class MainWindow(QMainWindow):
                     self._theme_action.setChecked(settings["theme"])
                     self._toggle_theme()
                     
+
             if "eco_mode" in settings and hasattr(self, '_eco_action'):
-                if self._eco_action.isChecked() != settings["eco_mode"]:
-                    self._eco_action.setChecked(settings["eco_mode"])
-                    self._toggle_eco()
+                val = settings["eco_mode"]
+                if self._eco_action.isChecked() != val:
+                    self._eco_action.setChecked(val)
+                if hasattr(self, '_eco_checkbox') and self._eco_checkbox.isChecked() != val:
+                    self._eco_checkbox.setChecked(val)
+                self._toggle_eco()
+
 
                     
         except Exception as e:
@@ -6998,6 +7003,12 @@ class MainWindow(QMainWindow):
         finally:
             table.blockSignals(previous)
 
+
+
+    def _toggle_eco_checkbox(self, checked):
+        if hasattr(self, '_eco_action'):
+            self._eco_action.setChecked(checked)
+        self._toggle_eco()
 
     def _toggle_eco(self):
         eco = self._eco_action.isChecked()

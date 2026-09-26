@@ -1653,6 +1653,35 @@ class StreamClient(QObject):
             except queue.Empty:
                 return False
 
+
+    def update_now_playing(self, song_title: str):
+        if not self._running or not self._url:
+            return
+        import urllib.request
+        import urllib.parse
+        import base64
+        import threading
+        
+        def _do_update():
+            try:
+                title_enc = urllib.parse.quote(song_title.encode('utf-8'))
+                if self._server_type == "icecast":
+                    url = f"http://{self._url}:{self._port}/admin/metadata?mount={self._mount}&mode=updinfo&song={title_enc}"
+                    req = urllib.request.Request(url)
+                    auth = base64.b64encode(f"{self._username}:{self._password}".encode('utf-8')).decode('ascii')
+                    req.add_header("Authorization", f"Basic {auth}")
+                else:
+                    url = f"http://{self._url}:{self._port}/admin.cgi?mode=updinfo&pass={self._password}&song={title_enc}"
+                    req = urllib.request.Request(url)
+                
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    pass
+                print(f"[STREAM] Metadata actualizado: {song_title}")
+            except Exception as e:
+                print(f"[STREAM] Error actualizando metadata: {e}")
+                
+        threading.Thread(target=_do_update, daemon=True).start()
+
     def _connect(self):
         import base64
         import socket
@@ -2273,10 +2302,29 @@ class EncoderSettingsDialog(QDialog):
         meta_layout.setHorizontalSpacing(10); meta_layout.setVerticalSpacing(8)
         self._name_edit = QLineEdit(); self._name_edit.setPlaceholderText("RadioSAT XP")
         self._genre_edit = QLineEdit(); self._genre_edit.setPlaceholderText("Various")
+
         self._desc_edit = QLineEdit(); self._desc_edit.setPlaceholderText("Descripción del stream…")
+        
+        self._np_mode = QComboBox()
+        self._np_mode.addItems(["Automático (App)", "Manual (Estático)", "Desde archivo TXT"])
+        self._np_mode.currentIndexChanged.connect(self._on_np_mode_changed)
+        self._np_text = QLineEdit()
+        self._np_text.setPlaceholderText("Título actual o ruta del archivo...")
+        self._np_btn = QPushButton("...")
+        self._np_btn.setFixedWidth(30)
+        self._np_btn.clicked.connect(self._browse_np_txt)
+        
         meta_layout.addWidget(QLabel("Nombre"), 0, 0); meta_layout.addWidget(self._name_edit, 0, 1)
         meta_layout.addWidget(QLabel("Género"), 0, 2); meta_layout.addWidget(self._genre_edit, 0, 3)
         meta_layout.addWidget(QLabel("Descripción"), 1, 0); meta_layout.addWidget(self._desc_edit, 1, 1, 1, 3)
+        
+        np_layout = QHBoxLayout()
+        np_layout.addWidget(self._np_text)
+        np_layout.addWidget(self._np_btn)
+        meta_layout.addWidget(QLabel("Now Playing"), 2, 0)
+        meta_layout.addWidget(self._np_mode, 2, 1)
+        meta_layout.addLayout(np_layout, 2, 2, 1, 2)
+
         layout.addWidget(meta_group)
 
         btn_layout = QHBoxLayout()
@@ -2299,7 +2347,28 @@ class EncoderSettingsDialog(QDialog):
             self._bitrate_spin.setRange(64, 320)
             self._bitrate_spin.setValue(192)
 
+
+    def _browse_np_txt(self):
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo TXT", "", "Text Files (*.txt);;All Files (*)")
+        if path:
+            self._np_text.setText(path)
+            
+    def _on_np_mode_changed(self, idx):
+        if idx == 0: # Automático
+            self._np_text.setEnabled(False)
+            self._np_btn.setEnabled(False)
+        elif idx == 1: # Manual
+            self._np_text.setEnabled(True)
+            self._np_btn.setEnabled(False)
+            self._np_text.setPlaceholderText("Ingresa el título manual a emitir...")
+        elif idx == 2: # TXT
+            self._np_text.setEnabled(True)
+            self._np_btn.setEnabled(True)
+            self._np_text.setPlaceholderText("Ruta del archivo TXT...")
+
     def _refresh_loopback_devices(self):
+
         self._loopback_combo.clear()
         if not SOUND_OK:
             return
@@ -2352,8 +2421,16 @@ class EncoderSettingsDialog(QDialog):
             self._name_edit.setText(s['name'])
         if 'genre' in s:
             self._genre_edit.setText(s['genre'])
+
         if 'description' in s:
             self._desc_edit.setText(s['description'])
+            
+        if 'np_mode' in s:
+            self._np_mode.setCurrentIndex(s['np_mode'])
+        if 'np_text' in s:
+            self._np_text.setText(s['np_text'])
+        self._on_np_mode_changed(self._np_mode.currentIndex())
+
         if 'loopback_device' in s:
             idx = self._loopback_combo.findData(s['loopback_device'])
             if idx >= 0:
@@ -2494,9 +2571,16 @@ class MainWindow(QMainWindow):
         self._load_pautas_from_disk()
         self._load_remotes_from_disk()
         self._load_playlist_from_disk()
+
         self._load_encoder_settings()
         self._load_settings_from_disk()
         self._sync_dashboard()
+        
+        self._np_timer = QTimer(self)
+        self._np_timer.timeout.connect(self._check_now_playing)
+        self._np_timer.start(5000)
+        self._last_np_text = ""
+
 
         # ── Timer VU demo (cuando no hay audio real) ───────────────────────
         self._demo_vu = QTimer(self)
@@ -2504,11 +2588,45 @@ class MainWindow(QMainWindow):
         # Los medidores sólo representan telemetría real. Se conserva el timer
         # para compatibilidad, pero no se arranca una animación de demostración.
 
+
+    def _check_now_playing(self):
+        if not self._encoder_on or not hasattr(self, 'stream_client'): return
+        s = self._encoder_settings
+        if not s: return
+        
+        mode = s.get('np_mode', 0)
+        text_val = s.get('np_text', '').strip()
+        
+        new_text = ""
+        if mode == 1: # Manual
+            new_text = text_val
+        elif mode == 2 and text_val: # TXT file
+            import os
+            if os.path.exists(text_val):
+                try:
+                    with open(text_val, 'r', encoding='utf-8') as f:
+                        new_text = f.read().strip()
+                except:
+                    pass
+        else:
+            return # Automático es manejado por _on_metadata_update
+            
+        if new_text and new_text != self._last_np_text:
+            self._last_np_text = new_text
+            self.stream_client.update_now_playing(new_text)
+
     def _on_metadata_update(self, meta_text: str):
         if meta_text:
             self._wave.set_metadata(f"♪ STREAMING: {meta_text}  •  RadioSAT XP")
         else:
             self._wave.set_metadata("♪ STREAMING...")
+            
+        s = self._encoder_settings
+        if s and s.get('np_mode', 0) == 0 and self._encoder_on:
+            if meta_text and meta_text != getattr(self, '_last_np_text', ''):
+                self._last_np_text = meta_text
+                self.stream_client.update_now_playing(meta_text)
+
 
     # ═══════════════════════════════════════════════════
     #  MENÚS Y TOOLBAR

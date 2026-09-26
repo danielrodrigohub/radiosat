@@ -1921,7 +1921,12 @@ class VUBar(QWidget):
         self._timer.timeout.connect(self._animate)
         self._timer.start(16)  # ~60 FPS
 
+
+    def set_eco_mode(self, eco: bool):
+        self._timer.setInterval(50 if eco else 16)
+
     def set_value(self, v: float):
+
         self._target_val = max(0.0, min(1.0, v))
 
     def _animate(self):
@@ -2014,7 +2019,12 @@ class WaveformWidget(QWidget):
         self._timer.timeout.connect(self.update_scroll)
         self._timer.start(40)
 
+
+    def set_eco_mode(self, eco: bool):
+        self._timer.setInterval(100 if eco else 40)
+
     def set_metadata(self, text: str):
+
         if text != self._text:
             self._text = text
             self._scrolling_offset = self.width()
@@ -2657,9 +2667,17 @@ class MainWindow(QMainWindow):
         m_cfg.addSeparator()
         self._theme_action = m_cfg.addAction("Tema Oscuro")
         self._theme_action.setCheckable(True)
+
         self._theme_action.setChecked(True)
         self._theme_action.triggered.connect(self._toggle_theme)
+        
+        self._eco_action = m_cfg.addAction("Modo Bajo Consumo (Menos CPU)")
+        self._eco_action.setCheckable(True)
+        self._eco_action.setChecked(False)
+        self._eco_action.triggered.connect(self._toggle_eco)
+        
         m_cfg.addAction(xp_icon("ControlPanel.png"), "Preferencias…",
+
                         lambda: QMessageBox.information(self, "Preferencias",
                                                         "Próximamente…"))
 
@@ -5702,6 +5720,14 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self,"Dispositivos actualizados",
             "Lista de dispositivos de audio actualizada.")
 
+
+    def _toggle_eco(self):
+        eco = self._eco_action.isChecked()
+        for vb in self._vu_bars:
+            vb.set_eco_mode(eco)
+        self._wave.set_eco_mode(eco)
+        self._save_settings_to_disk()
+
     def _toggle_theme(self):
         dark = self._theme_action.isChecked()
         set_theme(dark)
@@ -5788,8 +5814,11 @@ class MainWindow(QMainWindow):
             "remote_out_dev": self._remote_out_dev_combo.currentText(),
             "dtmf_seq_play": getattr(self, '_dtmf_seq_play', None) and self._dtmf_seq_play.text() or "",
             "dtmf_seq_stop": getattr(self, '_dtmf_seq_stop', None) and self._dtmf_seq_stop.text() or "",
-            "theme": getattr(self, '_theme_action', None) and self._theme_action.isChecked() or True
+
+            "theme": getattr(self, '_theme_action', None) and self._theme_action.isChecked() or True,
+            "eco_mode": getattr(self, '_eco_action', None) and self._eco_action.isChecked() or False
         }
+
         self._write_json_atomic("settings.json", settings)
 
     def _load_settings_from_disk(self):
@@ -5817,10 +5846,17 @@ class MainWindow(QMainWindow):
             if "dtmf_seq_stop" in settings and hasattr(self, '_dtmf_seq_stop'):
                 self._dtmf_seq_stop.setText(settings["dtmf_seq_stop"])
             
+
             if "theme" in settings and hasattr(self, '_theme_action'):
                 if self._theme_action.isChecked() != settings["theme"]:
                     self._theme_action.setChecked(settings["theme"])
                     self._toggle_theme()
+                    
+            if "eco_mode" in settings and hasattr(self, '_eco_action'):
+                if self._eco_action.isChecked() != settings["eco_mode"]:
+                    self._eco_action.setChecked(settings["eco_mode"])
+                    self._toggle_eco()
+
                     
         except Exception as e:
             print(f"Error loading settings: {e}")
@@ -6959,6 +6995,14 @@ class MainWindow(QMainWindow):
                     table.setItem(row,col,QTableWidgetItem(value))
         finally:
             table.blockSignals(previous)
+
+
+    def _toggle_eco(self):
+        eco = self._eco_action.isChecked()
+        for vb in self._vu_bars:
+            vb.set_eco_mode(eco)
+        self._wave.set_eco_mode(eco)
+        self._save_settings_to_disk()
 
     def _toggle_theme(self):
         """Cambia de tema reconstruyendo sólo widgets, nunca motores ni datos."""

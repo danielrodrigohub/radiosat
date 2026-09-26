@@ -1045,11 +1045,6 @@ class DTMFDetector(QObject):
 
     def stop(self):
         self._running = False
-        if hasattr(self, '_stream') and self._stream is not None:
-            try:
-                self._stream.abort()
-            except Exception:
-                pass
         if self._thread:
             self._thread.join(timeout=1.0)
             self._thread = None
@@ -1265,12 +1260,6 @@ class AudioPassthrough(QObject):
 
     def stop(self):
         self._running = False
-        if hasattr(self, '_in_stream') and self._in_stream is not None:
-            try: self._in_stream.abort()
-            except: pass
-        if hasattr(self, '_out_stream') and self._out_stream is not None:
-            try: self._out_stream.abort()
-            except: pass
         if self._thread:
             self._thread.join(timeout=1.0)
             self._thread = None

@@ -2477,6 +2477,8 @@ class EncoderSettingsDialog(QDialog):
             'description': self._desc_edit.text().strip(),
             'loopback_device': loopback_dev,
             'loopback_device_name': self._loopback_combo.currentText(),
+            'np_mode': self._np_mode.currentIndex(),
+            'np_text': self._np_text.text()
         }
 
 

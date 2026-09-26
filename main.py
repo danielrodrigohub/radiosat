@@ -581,12 +581,12 @@ class AudioEngine(QObject):
         if was_playing:
             self.player.stop()
         
-        self.player.setAudioOutput(None)
         if device is not None:
-            self.audio_output = QAudioOutput(device, self)
+            self.audio_output.setDevice(device)
         else:
-            self.audio_output = QAudioOutput(self)
-        self.audio_output.setVolume(self._volume)
+            from PyQt6.QtMultimedia import QMediaDevices
+            self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
+            
         self.player.setAudioOutput(self.audio_output)
         
         if was_playing:
@@ -690,12 +690,12 @@ class RemoteStreamEngine(QObject):
         if was_playing:
             self.player.stop()
             
-        self.player.setAudioOutput(None)
         if device is not None:
-            self.audio_output = QAudioOutput(device, self)
+            self.audio_output.setDevice(device)
         else:
-            self.audio_output = QAudioOutput(self)
-        self._apply_output_volume()
+            from PyQt6.QtMultimedia import QMediaDevices
+            self.audio_output.setDevice(QMediaDevices.defaultAudioOutput())
+            
         self.player.setAudioOutput(self.audio_output)
         
         if was_playing:
@@ -2495,6 +2495,7 @@ class MainWindow(QMainWindow):
         self._load_remotes_from_disk()
         self._load_playlist_from_disk()
         self._load_encoder_settings()
+        self._load_settings_from_disk()
         self._sync_dashboard()
 
         # ── Timer VU demo (cuando no hay audio real) ───────────────────────
@@ -5631,6 +5632,7 @@ class MainWindow(QMainWindow):
         self._save_pautas_to_disk()
         self._save_remotes_to_disk()
         self._save_playlist_to_disk()
+        self._save_settings_to_disk()
         self.remote_dtmf.stop()
         self.remote_engine.stop()
         self.dtmf.stop()
@@ -5659,6 +5661,51 @@ class MainWindow(QMainWindow):
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, path)
+
+    def _save_settings_to_disk(self):
+        settings = {
+            "dtmf_dev": self._dtmf_dev_combo.currentText(),
+            "sd_out_dev": self._sd_out_dev_combo.currentText(),
+            "out_dev": self._out_dev_combo.currentText(),
+            "remote_out_dev": self._remote_out_dev_combo.currentText(),
+            "dtmf_seq_play": getattr(self, '_dtmf_seq_play', None) and self._dtmf_seq_play.text() or "",
+            "dtmf_seq_stop": getattr(self, '_dtmf_seq_stop', None) and self._dtmf_seq_stop.text() or "",
+            "theme": getattr(self, '_theme_action', None) and self._theme_action.isChecked() or True
+        }
+        self._write_json_atomic("settings.json", settings)
+
+    def _load_settings_from_disk(self):
+        import json
+        path = os.path.join(self._get_data_dir(), "settings.json")
+        if not os.path.exists(path): return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+            
+            for combo, key in [
+                (self._dtmf_dev_combo, "dtmf_dev"),
+                (self._sd_out_dev_combo, "sd_out_dev"),
+                (self._out_dev_combo, "out_dev"),
+                (self._remote_out_dev_combo, "remote_out_dev"),
+            ]:
+                text = settings.get(key, "")
+                if text:
+                    idx = combo.findText(text)
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+                        
+            if "dtmf_seq_play" in settings and hasattr(self, '_dtmf_seq_play'):
+                self._dtmf_seq_play.setText(settings["dtmf_seq_play"])
+            if "dtmf_seq_stop" in settings and hasattr(self, '_dtmf_seq_stop'):
+                self._dtmf_seq_stop.setText(settings["dtmf_seq_stop"])
+            
+            if "theme" in settings and hasattr(self, '_theme_action'):
+                if self._theme_action.isChecked() != settings["theme"]:
+                    self._theme_action.setChecked(settings["theme"])
+                    self._toggle_theme()
+                    
+        except Exception as e:
+            print(f"Error loading settings: {e}")
 
     def _save_library_to_disk(self):
         import json

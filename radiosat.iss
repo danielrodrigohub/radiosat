@@ -29,7 +29,7 @@ LicenseFile=LICENSE.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
 OutputDir=installer
-OutputBaseFilename=RadioSAT-XP-1.6.0-Setup
+OutputBaseFilename=RadioSAT_Setup
 SetupIconFile=assets\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes

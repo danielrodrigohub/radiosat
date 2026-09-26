@@ -12,7 +12,10 @@ BASE = os.path.abspath('.')
 
 # Empaquetar FFmpeg dentro de la aplicación. El bus de programa lo utiliza para
 # enviar la mezcla completa (cabecera, pauta local y retorno) hacia Icecast.
-FFMPEG = shutil.which('ffmpeg')
+if sys.platform == 'win32' and os.path.exists('ffmpeg.exe'):
+    FFMPEG = os.path.abspath('ffmpeg.exe')
+else:
+    FFMPEG = shutil.which('ffmpeg')
 EXTRA_BINARIES = [(FFMPEG, '.')] if FFMPEG else []
 
 # Determinar icono según plataforma

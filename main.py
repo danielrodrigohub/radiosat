@@ -4474,7 +4474,7 @@ class MainWindow(QMainWindow):
             if self._signal_on:
                 print("[PAUTA] Deteniendo señal principal...")
                 self._hold_main_signal_for_pauta()
-            if self._remote_on and self.remote_engine.is_playing():
+            if self._remote_on and self.remote_engine.is_playing:
                 self.remote_engine.set_muted(True)
             print("[PAUTA] Iniciando reproducción desde el inicio...")
             self.engine.play(0)

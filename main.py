@@ -1666,12 +1666,12 @@ class StreamClient(QObject):
             try:
                 title_enc = urllib.parse.quote(song_title.encode('utf-8'))
                 if self._server_type == "icecast":
-                    url = f"http://{self._url}:{self._port}/admin/metadata?mount={self._mount}&mode=updinfo&song={title_enc}"
+                    url = f"http://{self._url}/admin/metadata?mount={self._mount}&mode=updinfo&song={title_enc}"
                     req = urllib.request.Request(url)
                     auth = base64.b64encode(f"{self._username}:{self._password}".encode('utf-8')).decode('ascii')
                     req.add_header("Authorization", f"Basic {auth}")
                 else:
-                    url = f"http://{self._url}:{self._port}/admin.cgi?mode=updinfo&pass={self._password}&song={title_enc}"
+                    url = f"http://{self._url}/admin.cgi?mode=updinfo&pass={self._password}&song={title_enc}"
                     req = urllib.request.Request(url)
                 
                 with urllib.request.urlopen(req, timeout=3) as resp:
@@ -6102,7 +6102,7 @@ class MainWindow(QMainWindow):
         self.loopback.start()
         self.encoder.start()
         self.stream_client.start()
-
+        self._last_np_text = ""
         self._encoder_on = True
         self._led_encoder.set_on(True)
         self._update_encoder_style(True)

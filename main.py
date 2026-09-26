@@ -93,11 +93,18 @@ def data_path(filename: str) -> str:
 def ffmpeg_path() -> str:
     """Devuelve la ruta al binario de FFmpeg (bundled o del sistema)."""
     if getattr(sys, 'frozen', False):
-        bundled = os.path.join(sys._MEIPASS, "ffmpeg")
-        if sys.platform == "win32":
-            bundled += ".exe"
-        if os.path.exists(bundled):
-            return bundled
+        exe_name = "ffmpeg.exe" if sys.platform == "win32" else "ffmpeg"
+        
+        # Check _MEIPASS (internal dir in PyInstaller 6+ or root in earlier versions)
+        bundled_meipass = os.path.join(sys._MEIPASS, exe_name)
+        if os.path.exists(bundled_meipass):
+            return bundled_meipass
+            
+        # Check executable directory (where RadioSAT.exe is)
+        bundled_exe_dir = os.path.join(os.path.dirname(sys.executable), exe_name)
+        if os.path.exists(bundled_exe_dir):
+            return bundled_exe_dir
+            
     return "ffmpeg"
 
 # ── Íconos XP ──────────────────────────────────────────────────────────────

@@ -93,6 +93,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install FFmpeg
+        run: choco install ffmpeg -y
+
       - name: Build with PyInstaller
         run: pyinstaller radiosat.spec --clean --noconfirm
 

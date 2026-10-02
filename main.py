@@ -748,6 +748,61 @@ class RemoteStreamEngine(QObject):
                 self.metadata_update.emit(text)
 
 
+class _DTMFToneGate:
+    """Procesa ventanas de 30 ms cada 10 ms, independientemente del bloque de entrada."""
+    def __init__(self, sample_rate):
+        self.window = round(sample_rate * 0.030)
+        self.hop = round(sample_rate * 0.010)
+        self.reset()
+
+    def reset(self):
+        self.buffer = None
+        self.candidate = ""
+        self.confirmations = 0
+        self.active = ""
+        self.gaps = 0
+
+    def feed(self, samples, decode, threshold):
+        arr = np.asarray(samples, dtype=np.float32)
+        if arr.ndim > 1:
+            arr = arr.mean(axis=1)
+        if self.buffer is None:
+            self.buffer = np.empty(0, dtype=np.float32)
+        self.buffer = np.concatenate((self.buffer, arr))
+        digits = []
+        while self.buffer.size >= self.window:
+            frame = self.buffer[:self.window]
+            rms = float(np.sqrt(np.mean(frame ** 2)))
+            digit = decode(frame) if rms > threshold else ""
+            self.buffer = self.buffer[self.hop:]
+            if not digit:
+                self.candidate = ""
+                self.confirmations = 0
+                self.gaps += 1
+                if self.gaps >= 2:
+                    self.active = ""
+                continue
+            self.gaps = 0
+            if digit == self.candidate:
+                self.confirmations += 1
+            else:
+                self.candidate = digit
+                self.confirmations = 1
+            if self.confirmations >= 2 and digit != self.active:
+                self.active = digit
+                digits.append(digit)
+        return digits
+
+
+def _advance_dtmf_sequence(target, position, digit):
+    """Conserva únicamente un prefijo que coincide con dígitos consecutivos."""
+    received = target[:position] + digit
+    for length in range(min(len(received), len(target)), 0, -1):
+        if received.endswith(target[:length]):
+            return length
+    return 0
+
+
 class StreamDTMFDetector(QObject):
     """Analiza audio remoto o muestras internas y detecta una secuencia DTMF."""
     action_detected = pyqtSignal(str)
@@ -767,6 +822,7 @@ class StreamDTMFDetector(QObject):
         self._seq    = []
         self._seq_progress = {}
         self._tone_refs = {}
+        self._tone_gate = _DTMFToneGate(self._sr)
         self._log    = []
         self._last_emitted = ""
         self._silence_count = 0
@@ -782,6 +838,7 @@ class StreamDTMFDetector(QObject):
 
     def arm(self, stop_seq):
         self._buf = b""
+        self._tone_gate.reset()
         self._log = []
         if isinstance(stop_seq, (list, tuple, set)):
             self._seq = [str(s).strip() for s in stop_seq if str(s).strip()]
@@ -840,25 +897,10 @@ class StreamDTMFDetector(QObject):
         self._last_emitted = ""
         self._silence_count = 0
 
-    def feed_samples(self, samples, final_silence: bool = True):
+    def feed_samples(self, samples, final_silence: bool = False):
         if "np" not in globals():
             return
-        arr = np.asarray(samples, dtype=np.float32)
-        if arr.ndim > 1:
-            arr = arr.mean(axis=1)
-        if arr.size == 0:
-            return
-            
-        if not hasattr(self, '_feed_buf'):
-            self._feed_buf = np.array([], dtype=np.float32)
-            
-        self._feed_buf = np.concatenate((self._feed_buf, arr))
-        
-        while len(self._feed_buf) >= self._block:
-            chunk = self._feed_buf[:self._block]
-            self._feed_buf = self._feed_buf[self._block:]
-            self._process_block(chunk)
-            
+        self._process_block(np.asarray(samples, dtype=np.float32))
         if final_silence:
             self._process_block(np.zeros(self._block, dtype=np.float32))
 
@@ -868,7 +910,7 @@ class StreamDTMFDetector(QObject):
             return
         self._last_emitted = ""
         self._silence_count = 0
-        self._last_digit_time = time.time()
+        self._last_digit_time = time.monotonic()
         self.status_update.emit(f"DTMF remoto: {digit}")
         self.digit_detected.emit(digit)
         self._append_digit(digit)
@@ -885,54 +927,31 @@ class StreamDTMFDetector(QObject):
             self._process_block(samples)
 
     def _process_block(self, samples):
+        if samples.size == 0:
+            return
         rms = float(np.sqrt(np.mean(samples ** 2)))
         self.level_update.emit(rms * 5, rms * 4.8)
-
-        if rms <= self._thresh:
-            self._silence_count += 1
-            if self._silence_count >= 1:
-                self._last_emitted = ""
-            return
-
-        digit = self._decode(samples)
-        if digit:
-            if digit != self._last_emitted:
-                now = time.time()
-                if now - self._last_digit_time > 5.0:
-                    self._log.clear()
-                    self._seq_progress = {seq: 0 for seq in self._seq}
-                self._last_digit_time = now
-                self._last_emitted = digit
-                self._silence_count = 0
-                self._append_digit(digit)
-            else:
-                self._silence_count = 0
-        else:
-            self._silence_count += 1
-            if self._silence_count >= 1:
-                self._last_emitted = ""
+        for digit in self._tone_gate.feed(samples, self._decode, self._thresh):
+            now = time.monotonic()
+            if now - self._last_digit_time > 5.0:
+                self._log.clear()
+                self._seq_progress = {seq: 0 for seq in self._seq}
+            self._last_digit_time = now
+            self.status_update.emit(f"DTMF remoto: {digit}")
+            self.digit_detected.emit(digit)
+            self._append_digit(digit)
 
     def _append_digit(self, digit: str):
         for target in self._seq:
             if not target:
                 continue
             pos = self._seq_progress.get(target, 0)
-            expected = target[pos] if pos < len(target) else target[0]
-
-            if digit == expected:
-                pos += 1
-            elif digit == target[0]:
-                pos = 1
-            elif digit not in target:
-                self._seq_progress[target] = pos
-                continue
-            else:
-                pos = 0
+            pos = _advance_dtmf_sequence(target, pos, digit)
 
             if pos >= len(target):
-                self._seq_progress[target] = 0
+                self._seq_progress = {seq: 0 for seq in self._seq}
                 self._log.clear()
-                now = time.time()
+                now = time.monotonic()
                 repeated = (
                     target == self._last_action_seq and
                     now - self._last_action_time < self._sequence_cooldown
@@ -964,9 +983,13 @@ class StreamDTMFDetector(QObject):
         min_power = energy * 1.5
         if best_row[0] < min_power or best_col[0] < min_power:
             return ""
-        if second_row > 0 and best_row[0] < second_row * 1.08:
+        if second_row > 0 and best_row[0] < second_row * 2.5:
             return ""
-        if second_col > 0 and best_col[0] < second_col * 1.08:
+        if second_col > 0 and best_col[0] < second_col * 2.5:
+            return ""
+        window_sum = float(np.sum(np.hanning(len(centered))))
+        tone_energy = 2 * (best_row[0] + best_col[0]) / max(window_sum ** 2, 1e-9)
+        if tone_energy < 0.65 * energy / len(centered):
             return ""
         twist = best_row[0] / max(best_col[0], 1e-9)
         if twist < 0.05 or twist > 20.0:
@@ -975,7 +998,8 @@ class StreamDTMFDetector(QObject):
 
     def _dtmf_power(self, samples, freq: int) -> float:
         power = 0.0
-        for candidate in (freq - self._tol, freq, freq + self._tol):
+        for candidate in sorted({freq - self._tol, freq, freq + self._tol,
+                                 *range(freq - self._tol, freq + self._tol + 1, 10)}):
             if candidate <= 0:
                 continue
             ref = self._tone_reference(len(samples), candidate)
@@ -1009,8 +1033,7 @@ COL_FREQS = [1209, 1336, 1477, 1633]
 
 
 class DTMFDetector(QObject):
-    """Detecta tonos DTMF mediante FFT.
-    Enfoque simple: emite dígito cuando cambia, requiere silencio entre dígitos."""
+    """Detecta pares DTMF estables en audio continuo con ventanas solapadas."""
     digit_detected = pyqtSignal(str)
     level_update   = pyqtSignal(float, float)
     status_update  = pyqtSignal(str)
@@ -1029,6 +1052,7 @@ class DTMFDetector(QObject):
         self._silence_count = 0
         self._external_mode = False
         self._tone_refs = {}
+        self._tone_gate = _DTMFToneGate(self._sr)
 
     def set_params(self, freq_tol: int = 20, rms_threshold: float = 0.01,
                    device=None):
@@ -1045,6 +1069,7 @@ class DTMFDetector(QObject):
         if self._running:
             return
         self._running = True
+        self._tone_gate.reset()
         self._last_emitted = ""
         self._silence_count = 0
         self._thread  = threading.Thread(target=self._run, daemon=True)
@@ -1075,20 +1100,7 @@ class DTMFDetector(QObject):
                     if self._heartbeat_counter % 100 == 0:
                         self.status_update.emit(f"rms={rms:.4f}")
 
-                    digit = self._decode(mono) if rms > self._thresh else ""
-                    if digit:
-                        if digit != self._last_emitted:
-                            self._last_emitted = digit
-                            self._silence_count = 0
-                            # print(f"[DTMF] >>> EMITIDO: {digit} <<<")
-                            self.status_update.emit(f"DTMF: {digit}")
-                            self.digit_detected.emit(digit)
-                        else:
-                            self._silence_count = 0
-                    else:
-                        self._silence_count += 1
-                        if self._silence_count >= 1:
-                            self._last_emitted = ""
+                    self._process_samples(mono)
         except Exception as e:
             print(f"[DTMF] ERROR: {e}")
             self.status_update.emit(f"ERROR: {e}")
@@ -1114,9 +1126,13 @@ class DTMFDetector(QObject):
         min_power = energy * 1.5
         if best_row[0] < min_power or best_col[0] < min_power:
             return ""
-        if second_row > 0 and best_row[0] < second_row * 1.08:
+        if second_row > 0 and best_row[0] < second_row * 2.5:
             return ""
-        if second_col > 0 and best_col[0] < second_col * 1.08:
+        if second_col > 0 and best_col[0] < second_col * 2.5:
+            return ""
+        window_sum = float(np.sum(np.hanning(len(centered))))
+        tone_energy = 2 * (best_row[0] + best_col[0]) / max(window_sum ** 2, 1e-9)
+        if tone_energy < 0.65 * energy / len(centered):
             return ""
         twist = best_row[0] / max(best_col[0], 1e-9)
         if twist < 0.05 or twist > 20.0:
@@ -1125,7 +1141,8 @@ class DTMFDetector(QObject):
 
     def _dtmf_power(self, samples, freq: int) -> float:
         power = 0.0
-        for candidate in (freq - self._tol, freq, freq + self._tol):
+        for candidate in sorted({freq - self._tol, freq, freq + self._tol,
+                                 *range(freq - self._tol, freq + self._tol + 1, 10)}):
             if candidate <= 0:
                 continue
             ref = self._tone_reference(len(samples), candidate)
@@ -1151,6 +1168,7 @@ class DTMFDetector(QObject):
         """Inicia en modo externo (recibe muestras del passthrough, sin abrir stream propio)."""
         self._running = True
         self._external_mode = True
+        self._tone_gate.reset()
         self._last_emitted = ""
         self._silence_count = 0
         self._heartbeat_counter = 0
@@ -1164,40 +1182,18 @@ class DTMFDetector(QObject):
         print("[DTMF] Modo externo detenido")
 
     def feed_samples(self, indata):
-        """Recibe muestras del passthrough en lugar de su propio stream."""
+        """Recibe audio continuo del passthrough, sin añadir silencios artificiales."""
         if not self._running:
             return
-            
-        if not hasattr(self, '_ext_buf'):
-            self._ext_buf = np.array([], dtype=np.float32)
-            
         mono = np.mean(indata, axis=1) if indata.ndim > 1 else indata
-        self._ext_buf = np.concatenate((self._ext_buf, mono))
-        
-        while len(self._ext_buf) >= self._block:
-            chunk = self._ext_buf[:self._block]
-            self._ext_buf = self._ext_buf[self._block:]
-            
-            rms = float(np.sqrt(np.mean(chunk ** 2)))
-            self.level_update.emit(rms * 5, rms * 4.8)
+        rms = float(np.sqrt(np.mean(mono ** 2))) if mono.size else 0.0
+        self.level_update.emit(rms * 5, rms * 4.8)
+        self._process_samples(mono)
 
-            self._heartbeat_counter += 1
-            if self._heartbeat_counter % 100 == 0:
-                self.status_update.emit(f"rms={rms:.4f}")
-
-            digit = self._decode(chunk) if rms > self._thresh else ""
-            if digit:
-                if digit != self._last_emitted:
-                    self._last_emitted = digit
-                    self._silence_count = 0
-                    self.status_update.emit(f"DTMF: {digit}")
-                    self.digit_detected.emit(digit)
-                else:
-                    self._silence_count = 0
-            else:
-                self._silence_count += 1
-                if self._silence_count >= 1:
-                    self._last_emitted = ""
+    def _process_samples(self, samples):
+        for digit in self._tone_gate.feed(samples, self._decode, self._thresh):
+            self.status_update.emit(f"DTMF: {digit}")
+            self.digit_detected.emit(digit)
 
     def feed_digit(self, digit: str):
         """Inyecta un dígito DTMF generado internamente por la app."""
@@ -3610,7 +3606,7 @@ class MainWindow(QMainWindow):
         lbl_backup.setStyleSheet(f"color: {T('success')}; font-size: 9pt;")
         layout.addWidget(lbl_backup)
 
-        lbl_version = QLabel("Radio XP Automator v1.6.0")
+        lbl_version = QLabel("Radio XP Automator v1.7.5")
         lbl_version.setStyleSheet(f"color: {T('text_dim')}; font-size: 9pt;")
         layout.addWidget(lbl_version)
 
@@ -4797,7 +4793,7 @@ class MainWindow(QMainWindow):
         self._dtmf_log.clear()
         if self._remote_break_active:
             return_seq = self._remote_break_return_seq
-            if not return_seq or sequence == return_seq or sequence != self._remote_break_start_seq:
+            if return_seq and sequence == return_seq:
                 self._return_to_remote_from_dtmf()
             return
 
@@ -5024,17 +5020,7 @@ class MainWindow(QMainWindow):
         active_targets = [target for target in targets if target]
         for target in active_targets:
             pos = self._dtmf_seq_progress.get(target, 0)
-            expected = target[pos] if pos < len(target) else target[0]
-
-            if digit == expected:
-                pos += 1
-            elif digit == target[0]:
-                pos = 1
-            elif digit not in target:
-                self._dtmf_seq_progress[target] = pos
-                continue
-            else:
-                pos = 0
+            pos = _advance_dtmf_sequence(target, pos, digit)
 
             if pos >= len(target):
                 matched = target
@@ -6791,7 +6777,7 @@ class MainWindow(QMainWindow):
         self._lbl_status_input=QLabel("Entrada: sin configurar"); self._lbl_status_output=QLabel("Salida: sistema predeterminado"); self._lbl_status_monitor=QLabel("Monitoreo: no configurado")
         for lab in (self._lbl_status_input,self._lbl_status_output,self._lbl_status_monitor): lab.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(lab)
         lay.addStretch(); self._lbl_status_backup=QLabel("●  Respaldo no configurado"); self._lbl_status_backup.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(self._lbl_status_backup)
-        version=QLabel("Radio XP Automator v1.6.0"); version.setStyleSheet(f"font-size:10px;color:{T('text_dim')};"); lay.addWidget(version)
+        version=QLabel("Radio XP Automator v1.7.5"); version.setStyleSheet(f"font-size:10px;color:{T('text_dim')};"); lay.addWidget(version)
         return bar
 
     def _secondary_page(self, title: str) -> tuple[QWidget, QVBoxLayout]:

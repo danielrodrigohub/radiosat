@@ -21,10 +21,11 @@ jobs:
             ## RadioSAT XP ${{ github.ref_name }}
             
             ### Cambios en esta versión
-            - **Fix: Audio del reproductor no se escuchaba en Windows** — El selector de dispositivo de salida del reproductor ahora usa correctamente la API de QtMultimedia en lugar de sounddevice, permitiendo dirigir el audio al dispositivo correcto (Virtual Audio Cable, Realtek, etc.)
-            - Nuevo método `set_output_device()` en el motor de audio para cambiar dispositivo en caliente
-            - Separación de APIs: QtMultimedia para reproducción, sounddevice para DTMF/passthrough
-            - Mejor manejo de errores del reproductor con diagnóstico en consola
+            - Detección DTMF con ventanas solapadas para reconocer pausas cortas y dígitos repetidos de forma consistente.
+            - Validación del código completo y consecutivo: los dígitos ajenos a la secuencia ya no se ignoran.
+            - Retorno a señal remota únicamente al recibir el código de conexión configurado.
+            - Mejor rechazo de ruido y pares de frecuencias ambiguos.
+            - Pruebas de regresión con audio PCM para retorno, niveles bajos, ruido y distintos tamaños de bloque.
             
             ### Descargas
             | Plataforma | Archivo | Instrucciones |

@@ -106,8 +106,8 @@ if sys.platform == 'darwin':
         info_plist={
             'CFBundleName': 'RadioSAT XP',
             'CFBundleDisplayName': 'RadioSAT XP',
-            'CFBundleVersion': '1.6.0',
-            'CFBundleShortVersionString': '1.6.0',
+            'CFBundleVersion': '1.7.5',
+            'CFBundleShortVersionString': '1.7.5',
             'NSHighResolutionCapable': True,
             'NSMicrophoneUsageDescription': 'RadioSAT necesita acceso al micrófono para funciones de audio en tiempo real.',
         },

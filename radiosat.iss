@@ -5,7 +5,7 @@
 ; ══════════════════════════════════════════════════════════════════════════════
 
 #define MyAppName "RadioSAT XP"
-#define MyAppVersion "1.6.0"
+#define MyAppVersion "1.7.5"
 #define MyAppPublisher "RadioSAT"
 #define MyAppURL "https://github.com/danielrodrigohub/radiosat"
 #define MyAppExeName "RadioSAT.exe"

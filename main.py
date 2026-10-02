@@ -749,9 +749,9 @@ class RemoteStreamEngine(QObject):
 
 
 class _DTMFToneGate:
-    """Procesa ventanas de 30 ms cada 10 ms, independientemente del bloque de entrada."""
+    """Procesa ventanas de 2048 muestras cada 10 ms, independientemente del bloque de entrada."""
     def __init__(self, sample_rate):
-        self.window = round(sample_rate * 0.030)
+        self.window = 2048
         self.hop = round(sample_rate * 0.010)
         self.reset()
 
@@ -779,7 +779,7 @@ class _DTMFToneGate:
                 self.candidate = ""
                 self.confirmations = 0
                 self.gaps += 1
-                if self.gaps >= 2:
+                if self.gaps >= 1:
                     self.active = ""
                 continue
             self.gaps = 0
@@ -788,7 +788,7 @@ class _DTMFToneGate:
             else:
                 self.candidate = digit
                 self.confirmations = 1
-            if self.confirmations >= 2 and digit != self.active:
+            if self.confirmations >= 3 and digit != self.active:
                 self.active = digit
                 digits.append(digit)
         return digits
@@ -983,13 +983,9 @@ class StreamDTMFDetector(QObject):
         min_power = energy * 1.5
         if best_row[0] < min_power or best_col[0] < min_power:
             return ""
-        if second_row > 0 and best_row[0] < second_row * 2.5:
+        if second_row > 0 and best_row[0] < second_row * 1.08:
             return ""
-        if second_col > 0 and best_col[0] < second_col * 2.5:
-            return ""
-        window_sum = float(np.sum(np.hanning(len(centered))))
-        tone_energy = 2 * (best_row[0] + best_col[0]) / max(window_sum ** 2, 1e-9)
-        if tone_energy < 0.65 * energy / len(centered):
+        if second_col > 0 and best_col[0] < second_col * 1.08:
             return ""
         twist = best_row[0] / max(best_col[0], 1e-9)
         if twist < 0.05 or twist > 20.0:
@@ -998,8 +994,7 @@ class StreamDTMFDetector(QObject):
 
     def _dtmf_power(self, samples, freq: int) -> float:
         power = 0.0
-        for candidate in sorted({freq - self._tol, freq, freq + self._tol,
-                                 *range(freq - self._tol, freq + self._tol + 1, 10)}):
+        for candidate in (freq - self._tol, freq, freq + self._tol):
             if candidate <= 0:
                 continue
             ref = self._tone_reference(len(samples), candidate)
@@ -1126,13 +1121,9 @@ class DTMFDetector(QObject):
         min_power = energy * 1.5
         if best_row[0] < min_power or best_col[0] < min_power:
             return ""
-        if second_row > 0 and best_row[0] < second_row * 2.5:
+        if second_row > 0 and best_row[0] < second_row * 1.08:
             return ""
-        if second_col > 0 and best_col[0] < second_col * 2.5:
-            return ""
-        window_sum = float(np.sum(np.hanning(len(centered))))
-        tone_energy = 2 * (best_row[0] + best_col[0]) / max(window_sum ** 2, 1e-9)
-        if tone_energy < 0.65 * energy / len(centered):
+        if second_col > 0 and best_col[0] < second_col * 1.08:
             return ""
         twist = best_row[0] / max(best_col[0], 1e-9)
         if twist < 0.05 or twist > 20.0:
@@ -1141,8 +1132,7 @@ class DTMFDetector(QObject):
 
     def _dtmf_power(self, samples, freq: int) -> float:
         power = 0.0
-        for candidate in sorted({freq - self._tol, freq, freq + self._tol,
-                                 *range(freq - self._tol, freq + self._tol + 1, 10)}):
+        for candidate in (freq - self._tol, freq, freq + self._tol):
             if candidate <= 0:
                 continue
             ref = self._tone_reference(len(samples), candidate)
@@ -3606,7 +3596,7 @@ class MainWindow(QMainWindow):
         lbl_backup.setStyleSheet(f"color: {T('success')}; font-size: 9pt;")
         layout.addWidget(lbl_backup)
 
-        lbl_version = QLabel("Radio XP Automator v1.7.5")
+        lbl_version = QLabel("Radio XP Automator v1.7.6")
         lbl_version.setStyleSheet(f"color: {T('text_dim')}; font-size: 9pt;")
         layout.addWidget(lbl_version)
 
@@ -6777,7 +6767,7 @@ class MainWindow(QMainWindow):
         self._lbl_status_input=QLabel("Entrada: sin configurar"); self._lbl_status_output=QLabel("Salida: sistema predeterminado"); self._lbl_status_monitor=QLabel("Monitoreo: no configurado")
         for lab in (self._lbl_status_input,self._lbl_status_output,self._lbl_status_monitor): lab.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(lab)
         lay.addStretch(); self._lbl_status_backup=QLabel("●  Respaldo no configurado"); self._lbl_status_backup.setStyleSheet(f"font-size:11px;color:{T('text_secondary')};"); lay.addWidget(self._lbl_status_backup)
-        version=QLabel("Radio XP Automator v1.7.5"); version.setStyleSheet(f"font-size:10px;color:{T('text_dim')};"); lay.addWidget(version)
+        version=QLabel("Radio XP Automator v1.7.6"); version.setStyleSheet(f"font-size:10px;color:{T('text_dim')};"); lay.addWidget(version)
         return bar
 
     def _secondary_page(self, title: str) -> tuple[QWidget, QVBoxLayout]:

@@ -21,11 +21,11 @@ jobs:
             ## RadioSAT XP ${{ github.ref_name }}
             
             ### Cambios en esta versión
-            - Detección DTMF con ventanas solapadas para reconocer pausas cortas y dígitos repetidos de forma consistente.
-            - Validación del código completo y consecutivo: los dígitos ajenos a la secuencia ya no se ignoran.
-            - Retorno a señal remota únicamente al recibir el código de conexión configurado.
-            - Mejor rechazo de ruido y pares de frecuencias ambiguos.
-            - Pruebas de regresión con audio PCM para retorno, niveles bajos, ruido y distintos tamaños de bloque.
+            - Corrige la regresión DTMF de v1.7.5: retira los filtros espectrales añadidos que rechazaban tonos mezclados con audio de programa.
+            - Restaura el análisis de frecuencias y el tamaño de ventana de v1.7.4, manteniendo el solapamiento para detectar pausas entre dígitos repetidos.
+            - Confirma los dígitos en tres ventanas consecutivas para evitar detecciones transitorias.
+            - Conserva la validación exacta del código de conexión y retorno.
+            - Añade una prueba PCM que reproduce el rechazo de tonos en v1.7.5 cuando están mezclados con audio más fuerte.
             
             ### Descargas
             | Plataforma | Archivo | Instrucciones |

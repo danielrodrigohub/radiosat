@@ -70,6 +70,18 @@ class DetectionTests(unittest.TestCase):
                     pcm = sequence(expected, prefix, duration=.060, gap=.030)
                     self.assertEqual(self.detect(pcm, remote)[0], expected)
 
+    def test_tones_mixed_with_louder_program_audio(self):
+        pcm = sequence('609700', 713, duration=.100, amplitude=.025)
+        t = np.arange(len(pcm)) / SR
+        # A strong low-frequency component must not hide the DTMF pair.
+        pcm += (.1 * np.sin(2*np.pi*110*t)).astype(np.float32)
+        for remote in (False, True):
+            with self.subTest(remote=remote):
+                digits, actions = self.detect(pcm, remote)
+                self.assertEqual(digits, '609700')
+                if remote:
+                    self.assertEqual(actions, ['609700'])
+
     def test_long_tone_with_short_dropout_is_one_digit(self):
         pcm = tone('0', .5).astype(np.float32)
         pcm[8000:8220] = 0  # 5 ms input dropout
